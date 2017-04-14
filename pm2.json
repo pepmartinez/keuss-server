@@ -1,0 +1,18 @@
+{
+  apps : [{
+    name         : "keuss",
+    script       : "./index.js",
+    kill_timeout : 5000,
+    instances    : 1,
+    watch        : false,
+    env: {
+      "NODE_ENV": "development",
+    },
+    env_stating: {
+       "NODE_ENV": "staging"
+    },
+    env_production : {
+       "NODE_ENV": "production"
+    }
+  }]
+}

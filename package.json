@@ -1,0 +1,41 @@
+{
+  "name": "keuss-server",
+  "version": "0.0.1",
+  "keywords": ["queue", "job"],
+  "homepage":"https://github.com/pepmartinez/keuss-server",
+  "bugs": {
+    "url" : "https://github.com/pepmartinez/keuss-server/issues",
+    "email" : "pep.martinez@gmail.com"
+  },
+  "repository": { 
+    "type" : "git",
+    "url" : "https://github.com/pepmartinez/keuss-server.git"
+  },
+  "author": { 
+    "name" : "Jose Luis Martinez Juan",
+    "email" : "pep.martinez@gmail.com"
+  },
+  "license" : "GPL-3.0",
+  "bin": {
+    "keuss":"./index.js"
+  },
+  "dependencies": {
+    "keuss": "0.0.6",
+    "async": "2.1.5",
+    "lodash": "4.17.4",
+    "express": "4.15.2",
+    "winston": "2.3.1",
+    "jade": "1.11.0",
+    "body-parser ": "1.15.2",
+    "uuid": "3.0.1",
+    "express-basic-auth":"1.0.1"
+  },
+  "devDependencies": {
+    "mocha":"3.2.0",
+    "should":"11.2.1",
+    "random-to":"0.0.2"
+  },
+  "scripts": {
+    "test": "mocha --reporter spec --check-leaks --no-timeouts test/"
+  }
+}
