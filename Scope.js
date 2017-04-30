@@ -39,18 +39,16 @@ class Scope extends WithLog {
     
       tasks.push (function (cb) {
         var bk_module = require ('keuss/backends/' + backend.factory);
-        self._types [bk_module.Type ()] = {factory: bk_module, q_repo: new Map ()};
-        self._info ('queue backend [%s] loaded as [%s]', backend.factory, bk_module.Type ());
-        
-        bk_module.init (backend.config, function (err, res) {
+
+        bk_module (backend.config, function (err, factory) {
           if (err) {
-            self._info ('error initializing queue backend [%s]: %j', bk_module.Type (), err);
+            self._info ('error initializing queue backend [%s]: %j', factory.type (), err);
             return cb (err);
           }
-          
-          self._info ('queue backend [%s] initialized', bk_module.Type ());
-          
-          cb (null, res);
+
+          self._types [factory.type ()] = {factory: factory, q_repo: new Map ()};
+          self._info ('queue backend [%s] loaded as [%s]', backend.factory, factory.type ());
+          cb ();
         });
       });
     });
@@ -73,10 +71,10 @@ class Scope extends WithLog {
         bk.list (function (err, colls) {
           for (let i = 0; i < colls.length; i++) {
             let qname = colls[i];
-            self._info ('reported queue [%s]', qname);
+
             if (!type_obj.q_repo.get (qname)) {
-              type_obj.q_repo.set (qname, new bk (qname, Config.queues));
-              self._info ('added queue [%s]', qname);
+              type_obj.q_repo.set (qname, bk.queue (qname, Config.queues));
+              self._info ('%s: added queue [%s]', type_name, qname);
             }
           }
           
