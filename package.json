@@ -1,6 +1,6 @@
 {
   "name": "keuss-server",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "keywords": ["queue", "job"],
   "homepage":"https://github.com/pepmartinez/keuss-server",
   "bugs": {
@@ -20,7 +20,7 @@
     "keuss":"./index.js"
   },
   "dependencies": {
-    "keuss": "0.0.9",
+    "keuss": "0.0.10",
     "async": "2.4.0",
     "lodash": "4.17.4",
     "express": "4.15.2",
