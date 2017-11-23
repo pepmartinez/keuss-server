@@ -7,7 +7,6 @@ var async =      require ('async');
 var basicAuth =  require ('express-basic-auth');
 
 var routes_q =     require ('./routes/q');
-var routes_utils = require ('./routes/utils');
 
 var B_MongoDB =   require ('keuss/backends/mongo');
 var B_RedisList = require ('keuss/backends/redis-list');
@@ -35,7 +34,6 @@ function app (cb) {
   app.use (bodyParser.json ());
   
   app.use ('/q',     routes_q (scope));
-  app.use ('/utils', routes_utils ());
   
   app.use (function (err, req, res, next) 
   {
