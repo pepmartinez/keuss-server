@@ -34,6 +34,20 @@ var config = {
       }
     },
     {
+      factory: 'pl-mongo',
+      //      disable: true,
+      config: {
+        url: 'mongodb://localhost:27017/qeus',
+        pollInterval: 17000,
+        stats: {
+          provider: new stats_redis(),
+        },
+        signaller: {
+          provider: new signal_redis_pubsub()
+        }
+      }
+    },
+    {
       factory: 'redis-list',
       config: {
         pollInterval: 17000,

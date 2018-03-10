@@ -1,5 +1,4 @@
 
-var autorefresh = false;
 var qtable = null;
 
 
@@ -8,7 +7,7 @@ function getTimeDelta (ts) {
     return '-';
   }
   
-  var delta = ts - new Date ().getTime ();
+  var delta = new Date (ts).getTime () - new Date ().getTime ();
   var positive = true;
   
   if (delta < 0) {
@@ -103,6 +102,4 @@ $(function() {
       // do something with the ID of the selected items
     }
   });
-  
-  autoRefresh();
 });
