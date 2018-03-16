@@ -35,79 +35,107 @@ function get_router (scope)
       next ();
     }
   });
+
+  function list_queues_tree (req, res) {
+    var queues = scope.queues ();
+    var tasks = {};
+    
+    _.forEach (queues, function (q, qname) {
+      tasks [qname] = function (cb) {q.status (cb)}
+    });
+    
+    var hier = {};
+    
+    async.parallel (tasks, function (err, r) {
+      _.forEach (r, function (q, qname) {
+        if (!hier[q.type]) {
+          hier[q.type] = {title: q.type, key: q.type, folder: true, expanded: true, children: []};
+        }
+        
+        var ch = hier[q.type].children;
+        ch.push ({
+          title:  qname, 
+          key:    qname,
+          put:    q.stats.put,
+          got:    q.stats.got,
+          size:   q.size,
+          total:  q.totalSize,
+          sched:  q.schedsize,
+          next_t: q.next_mature_t
+        });
+      });
+      
+      var final_res = [];
+      
+      _.forEach (hier, function (v, k) {
+        final_res.push (v);
+      });
+      
+      res.send (final_res);
+    });
+  }
+
+  function list_queues_array (req, res) {
+    var queues = scope.queues ();
+    var tasks = {};
+
+    
+    _.forEach (queues, function (q, qname) {
+      tasks [qname] = function (cb) {q.status (cb)}
+    });
+    
+    async.parallel (tasks, function (err, r) {
+      var final_res = [];
+      _.forEach (r, function (q, qname) {
+        q.id = qname;
+        final_res.push (q);
+      });
+        
+      res.send ({data: final_res});
+    });
+  }
+
+  function list_queues_plain (req, res) {
+    var queues = scope.queues ();
+    var tasks = {};
+    
+    _.forEach (queues, function (q, qname) {
+      tasks [qname] = function (cb) {q.status (cb)}
+    });
+    
+    async.parallel (tasks, function (err, r) {
+      res.send (r);
+    });
+  }
+
+  function list_queues (req, res) {
+    if (req.query.tree) {
+      list_queues_tree (req, res);
+    }
+    else if (req.query.array) {
+      list_queues_array (req, res);
+    }
+    else {
+      list_queues_plain (req, res);
+    }
+  }
+
+  function reload_list_queues (req, res) {
+    scope.refresh (function (){
+      list_queues (req, res);
+    });
+  }
   
   
   /////////////////////////////////////////////////////////////////////////////
   router.get('/', function (req, res) {
-    if (req.query.tree) {
-      var queues = scope.queues ();
-      var tasks = {};
-      
-      _.forEach (queues, function (q, qname) {
-        tasks [qname] = function (cb) {q.status (cb)}
-      });
-      
-      var hier = {};
-      
-      async.parallel (tasks, function (err, r) {
-        _.forEach (r, function (q, qname) {
-          if (!hier[q.type]) {
-            hier[q.type] = {title: q.type, key: q.type, folder: true, expanded: true, children: []};
-          }
-          
-          var ch = hier[q.type].children;
-          ch.push ({
-            title:  qname, 
-            key:    qname,
-            put:    q.stats.put,
-            got:    q.stats.got,
-            size:   q.size,
-            total:  q.totalSize,
-            sched:  q.schedsize,
-            next_t: q.next_mature_t
-          });
-        });
-        
-        var final_res = [];
-        
-        _.forEach (hier, function (v, k) {
-          final_res.push (v);
-        });
-        
-        res.send (final_res);
-      });
-    }
-    else if (req.query.array) {
-      
-      var queues = scope.queues ();
-      var tasks = {};
-      
-      _.forEach (queues, function (q, qname) {
-        tasks [qname] = function (cb) {q.status (cb)}
-      });
-      
-      async.parallel (tasks, function (err, r) {
-        var final_res = [];
-        _.forEach (r, function (q, qname) {
-          q.id = qname;
-          final_res.push (q);
-        });
-          
-        res.send ({data: final_res});
-      });
+    if (req.query.reload) {
+      reload_list_queues (req, res);
     }
     else {
-      var queues = scope.queues ();
-      var tasks = {};
-      
-      _.forEach (queues, function (q, qname) {
-        tasks [qname] = function (cb) {q.status (cb)}
-      });
-      
-      async.parallel (tasks, function (err, r) {
-        res.send (r);
-      });
+      list_queues (req, res);
     }
+
   });
   
   

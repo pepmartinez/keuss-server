@@ -40,20 +40,26 @@ function getTimeDelta (ts) {
 /////////////////////////////////////////
 function refresh (){
 /////////////////////////////////////////
-  qtable.ajax.reload( null, false );
+  qtable.ajax.url ('/q?array=1').load();
 }
 
+/////////////////////////////////////////
+function reload (){
+  /////////////////////////////////////////
+    qtable.ajax.url ('/q?array=1&reload=1').load();
+  }
 
 /////////////////////////////////////////
 $(function() {
 /////////////////////////////////////////
-  console.log ('ready!');
-  
   $.fn.dataTable.ext.errMode = 'none';
   
-  $('#refresh-btn').click(function( eventObject ) {
-    console.log ('refresh-btn clicked');
+  $('#refresh-btn').click(function(eventObject) {
     refresh ();
+  });  
+  
+  $('#reload-btn').click(function(eventObject) {
+    reload ();
   });
   
   $('#qtable')
@@ -75,7 +81,7 @@ $(function() {
   .on('preXhr.dt', function (e, settings, data) {
     $('#error-panel').hide ();
     $('#error-text').html = '';
-  } )
+  });
   
   qtable = $('#qtable') .DataTable({
     processing: true,
@@ -83,6 +89,10 @@ $(function() {
     ajax: '/q?array=1',
     columns: [
       {data: 'id'},
+      {data: 'topology', render: function ( data, type, full, meta ) {
+        if (!data) return '-';
+        return JSON.stringify (data);
+      }},
       {data: 'stats.put', defaultContent: '-'},
       {data: 'stats.get', defaultContent: '-'},
       {data: 'size',      defaultContent: '0'},
@@ -95,7 +105,8 @@ $(function() {
   });
   
   qtable.on ('select', function ( e, dt, type, indexes ) {
-    console.log ('select: ',e, dt, type, indexes )
+    console.log ('select: ',e, dt, type, indexes );
+    
     if ( type === 'row' ) {
       //      var data = table.rows( indexes ).data().pluck( 'id' );
       

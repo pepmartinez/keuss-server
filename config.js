@@ -15,9 +15,6 @@ var logger = new (winston.Logger)({
 
 var config = {
   logger: logger,
-  queues: {
-    logger: logger
-  },
   backends: [
     {
       factory: 'mongo',
@@ -37,7 +34,7 @@ var config = {
       factory: 'pl-mongo',
       //      disable: true,
       config: {
-        url: 'mongodb://localhost:27017/qeus',
+        url: 'mongodb://localhost:27017/keuss',
         pollInterval: 17000,
         stats: {
           provider: new stats_redis(),

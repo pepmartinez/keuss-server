@@ -66,18 +66,17 @@ class Scope extends WithLog {
     _.forEach (this._types, function (type_obj, type_name) {
       tasks.push (function (cb) {
         var bk = type_obj.factory;
+        
+        bk.recreate_topology (function (err, ql) {
+          if (err) return cb (err);
 
-        // init q_repo from colls in db
-        bk.list (function (err, colls) {
-          for (let i = 0; i < colls.length; i++) {
-            let qname = colls[i];
+          type_obj.q_repo.clear ();
 
-            if (!type_obj.q_repo.get (qname)) {
-              type_obj.q_repo.set (qname, bk.queue (qname, Config.queues));
-              self._info ('%s: added queue [%s]', type_name, qname);
-            }
-          }
-          
+          _.forEach (ql, function (v, k) {
+            type_obj.q_repo.set (k, v);
+            self._info ('%s: added queue [%s]', type_name, k);
+          });
+
           cb ();
         });
       });
