@@ -1,39 +1,34 @@
 'use strict';
 
-var async =   require ('async');
-var _ =       require ('lodash');
+var async =  require ('async');
+var _ =      require ('lodash');
 
-var WithLog = require ('./WithLog');
-var Config =  require ('./config');
+var Config = require ('./config');
+var Logger = require ('./Logger');
 
+var logger = Logger ('scope');
 
-class Scope extends WithLog {
+class Scope {
   //////////////////////////////
-  constructor (opts) {
-  //////////////////////////////
-    super (opts);
-    
-    this._types = {
-    };
+  constructor () {
+    this._types = {};
   }
 
 
   //////////////////////////////
   type (t) {
-  //////////////////////////////
     return this._types[t];
   }
   
   
   //////////////////////////////
   init (cb) {
-  //////////////////////////////
     var tasks = [];
     var self = this;
     
     Config.backends.forEach (function (backend) {
       if (backend.disable) {
-        self._info ('queue backend [%s] disabled, not loading', backend.factory);
+        logger.info ('queue backend [%s] disabled, not loading', backend.factory);
         return;
       }
     
@@ -42,12 +37,12 @@ class Scope extends WithLog {
 
         bk_module (backend.config, function (err, factory) {
           if (err) {
-            self._info ('error initializing queue backend [%s]: %j', factory.type (), err);
+            logger.info ('error initializing queue backend [%s]: %j', factory.type (), err);
             return cb (err);
           }
 
           self._types [factory.type ()] = {factory: factory, q_repo: new Map ()};
-          self._info ('queue backend [%s] loaded as [%s]', backend.factory, factory.type ());
+          logger.info ('queue backend [%s] loaded as [%s]', backend.factory, factory.type ());
           cb ();
         });
       });
@@ -59,7 +54,6 @@ class Scope extends WithLog {
 
   //////////////////////////////
   refresh (cb) {
-  //////////////////////////////
     var tasks = [];
     var self = this;
     
@@ -74,7 +68,7 @@ class Scope extends WithLog {
 
           _.forEach (ql, function (v, k) {
             type_obj.q_repo.set (k, v);
-            self._info ('%s: added queue [%s]', type_name, k);
+            logger.info ('%s: added queue [%s]', type_name, k);
           });
 
           cb ();
@@ -88,7 +82,6 @@ class Scope extends WithLog {
   
   //////////////////////////////
   queues () {
-  /////////////////////////////
     var ret = {};
     
     _.forEach (this._types, function (type_obj, type_name) {

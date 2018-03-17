@@ -2,15 +2,17 @@
 
 var http =    require ('http');
 var BaseApp = require ('./app');
+var Logger =  require ('./Logger');
+
+var logger = Logger ('main');
+
 
 BaseApp (function (err, app) {
-  if (err) {
-    return console.log (err);
-  }
+  if (err) return logger.error (err);
   
   var server = http.createServer (app);
   
   server.listen (3444, function () {
-    console.log ('keuss server listening at port %s', 3444);
+    logger.info ('keuss server listening at port %s', 3444);
   });
 });

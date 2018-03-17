@@ -14,9 +14,7 @@ var logger = new (winston.Logger)({
 });
 
 var config = {
-  logger: logger,
-  backends: [
-    {
+  backends: [{
       factory: 'mongo',
       //      disable: true,
       config: {
