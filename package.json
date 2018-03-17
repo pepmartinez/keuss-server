@@ -40,9 +40,10 @@
   "devDependencies": {
     "mocha": "5.0.2",
     "should": "13.2.1",
-    "random-to": "0.0.2"
+    "random-to": "0.0.2",
+    "supertest": "3.0.0"
   },
   "scripts": {
-    "test": "mocha --reporter spec --check-leaks --no-timeouts test/"
+    "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/"
   }
 }

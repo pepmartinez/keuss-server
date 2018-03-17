@@ -6,7 +6,7 @@ var path =       require ('path');
 var async =      require ('async');
 var basicAuth =  require ('express-basic-auth');
 
-var routes_q =     require ('./routes/q');
+var routes_q =    require ('./routes/q');
 
 var B_MongoDB =   require ('keuss/backends/mongo');
 var B_RedisList = require ('keuss/backends/redis-list');
@@ -19,12 +19,12 @@ var Logger = require ('./Logger');
 var logger = Logger ('app');
 
 
-function app (cb) {
+function app (config, cb) {
   var scope = new Scope ();
   var app = express ();
   
   async.series ([
-    function (cb) {scope.init (cb)},
+    function (cb) {scope.init (config, cb)},
     function (cb) {scope.refresh (cb)}
   ], function (err) {
     if (err) return cb (err);
@@ -32,7 +32,7 @@ function app (cb) {
     app.set ('view engine', 'jade');
   
     app.use(basicAuth({
-      users: (Config.http && config.http.users) || { 'root': 'Waiwah0G' },
+      users: (config.http && config.http.users) || { 'root': 'Waiwah0G' },
       challenge: true,
       realm: 'Keuss'
     }));

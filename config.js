@@ -5,14 +5,6 @@ var stats_mem = require('keuss/stats/mem');
 var signal_redis_pubsub = require('keuss/signal/redis-pubsub');
 var signal_local = require('keuss/signal/local');
 
-var winston = require('winston');
-
-var logger = new (winston.Logger)({
-  transports: [
-    new (winston.transports.Console)({ level: 'info' })
-  ]
-});
-
 var config = {
   backends: [{
       factory: 'mongo',

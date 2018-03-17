@@ -3,7 +3,6 @@
 var async =  require ('async');
 var _ =      require ('lodash');
 
-var Config = require ('./config');
 var Logger = require ('./Logger');
 
 var logger = Logger ('scope');
@@ -22,11 +21,11 @@ class Scope {
   
   
   //////////////////////////////
-  init (cb) {
+  init (config, cb) {
     var tasks = [];
     var self = this;
     
-    Config.backends.forEach (function (backend) {
+    config.backends.forEach (function (backend) {
       if (backend.disable) {
         logger.info ('queue backend [%s] disabled, not loading', backend.factory);
         return;
