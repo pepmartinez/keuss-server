@@ -1,15 +1,30 @@
 var winston = require('winston');
 
-var _logger = new (winston.Logger)({
-  transports: [
-    new (winston.transports.Console)({ 
-      level: 'info',
-      colorize: true,
-      humanReadableUnhandledException: true,
-      timestamp: true
-    })
-  ]
-});
+
+var _logger;
+
+if (process.env.KEUSS_SERVER_SILENT) {
+  _logger = {
+    silly: function () {},
+    debug: function () {},
+    verbose: function () {},
+    info: function () {},
+    warn: function () {},
+    error: function () {}
+  }
+}
+else {
+  _logger = new (winston.Logger)({
+    transports: [
+      new (winston.transports.Console)({ 
+        level: 'info',
+        colorize: true,
+        humanReadableUnhandledException: true,
+        timestamp: true
+      })
+    ]
+  });
+}
 
 
 function logger () {

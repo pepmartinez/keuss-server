@@ -44,6 +44,6 @@
     "supertest": "3.0.0"
   },
   "scripts": {
-    "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/"
+    "test": "KEUSS_SERVER_SILENT=1 mocha --reporter spec --check-leaks --no-timeouts --exit test/"
   }
 }

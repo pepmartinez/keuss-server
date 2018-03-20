@@ -123,7 +123,7 @@ _.forEach([
   'mongo:simple',
   'mongo:pipeline'
 ], function (type) {
-  describe('queue type ' + type, function () {
+  describe('reserve-commit-rollback operations on queue type ' + type, function () {
     describe('REST interface', function () {
       before(function (done) {
         BaseApp(config, function (err, app) {
@@ -136,119 +136,12 @@ _.forEach([
         done();
       });
 
-      it('does push/pop ok', function (done) {
-        var msg = {
-          a: 'aaa',
-          b: 666,
-          c: {
-            ca: 'rtrtr',
-            cb: {}
-          }
-        };
-        async.series([
-          function (cb) {
-            put_msg(type, 'q1', msg, cb)
-          },
-          function (cb) {
-            get_msg(type, 'q1', cb)
-          },
-        ], function (err, allres) {
-          allres[1].should.match({
-            _id: /.+/,
-            payload: msg,
-            tries: 0
-          });
-
-          done(err);
-        });
-      });
-
-
-      it('does pop + timeout ok', function (done) {
-        var t0 = new Date().getTime();
-        async.series([
-          function (cb) {
-            get_msg_timeout(type, 'q1', 2000, cb)
-          }
-        ], function (err, allres) {
-          allres[0].should.match({
-            timeout: true,
-            tid: /.+/
-          });
-
-          var t1 = new Date().getTime();
-          (t1 - t0).should.be.approximately(2000, 100);
-
-          done(err);
-        });
-      });
-
-
-      it('does push-delayed + pop ok', function (done) {
-        var msg = {
-          a: 'aaa',
-          b: 666,
-          c: {
-            ca: 'rtrtr',
-            cb: {}
-          }
-        };
-        var t0 = new Date().getTime();
-        async.series([
-          function (cb) {
-            put_msg_delayed(type, 'q1', msg, 2, cb)
-          },
-          function (cb) {
-            get_msg(type, 'q1', cb)
-          },
-        ], function (err, allres) {
-          allres[1].should.match({
-            _id: /.+/,
-            payload: msg,
-            tries: 0
-          });
-
-          var t1 = new Date().getTime();
-          (t1 - t0).should.be.approximately(2000, 100);
-
-          done(err);
-        });
-      });
-
-
-      it('does pop + delay + push-delayed ok', function (done) {
-        var msg = {
-          a: 'aaa',
-          b: 666,
-          c: {
-            ca: 'rtrtr',
-            cb: {}
-          }
-        };
-        var t0 = new Date().getTime();
-        async.parallel([
-          function (cb) {
-            get_msg(type, 'q1', cb)
-          },
-          function (cb) {
-            setTimeout(function () {
-              put_msg_delayed(type, 'q1', msg, 2, cb)
-            }, 1000)
-          }
-        ], function (err, allres) {
-
-          allres[0].should.match({
-            _id: /.+/,
-            payload: msg,
-            tries: 0
-          });
-
-          var t1 = new Date().getTime();
-          (t1 - t0).should.be.approximately(3000, 100);
-
-          done(err);
-        });
-      });
+      it('does reserve+commit ok');
+      it('does reserve+rollback+get ok');
+      it('causes reserve+reserve+rollback to go on second consumer ok');
+      it('does reserve+commit on sched message ok');
+      it('honors rollback max retries');
+      it('honors rollback with custon delay');
     });
   });
 });

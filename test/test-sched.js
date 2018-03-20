@@ -80,6 +80,20 @@ function put_msg(type, q, msg, cb) {
     });
 }
 
+function put_msg_delayed(type, q, msg, delay, cb) {
+  request(theApp)
+    .put('/q/' + type + '/' + q)
+    .query({
+      delay: delay
+    })
+    .send(msg)
+    .auth('test', 'toast')
+    .expect(200)
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
 function get_msg(type, q, cb) {
   request(theApp)
     .get('/q/' + type + '/' + q)
@@ -103,47 +117,13 @@ function get_msg_timeout(type, q, timeout, cb) {
     });
 }
 
-function get_msg_timeout_id(type, q, timeout, id, cb) {
-  request(theApp)
-    .get('/q/' + type + '/' + q)
-    .query({
-      to: timeout,
-      tid: id
-    })
-    .expect(504)
-    .auth('test', 'toast')
-    .end(function (err, res) {
-      cb(err, res && res.body);
-    });
-}
-
-function cancel_pop(type, q, id, cb) {
-  request(theApp)
-    .del('/q/' + type + '/' + q + '/consumer/' + id)
-    .expect(200)
-    .auth('test', 'toast')
-    .end(function (err, res) {
-      cb(err, res && res.body);
-    });
-}
-
-function get_consumers (type, q, cb) {
-  request(theApp)
-  .get('/q/' + type + '/q1/consumers')
-  .auth('test', 'toast')
-  .end (function (err, res) {
-    cb(err, res && res.body);
-  });
-}
-
 
 _.forEach([
   'redis:oq',
-  'redis:list',
   'mongo:simple',
   'mongo:pipeline'
 ], function (type) {
-  describe('push/pop operations on queue type ' + type, function () {
+  describe('scheduled operations on queue type ' + type, function () {
     describe('REST interface', function () {
       before(function (done) {
         BaseApp(config, function (err, app) {
@@ -174,6 +154,7 @@ _.forEach([
           },
         ], function (err, allres) {
           allres[1].should.match({
+            _id: /.+/,
             payload: msg,
             tries: 0
           });
@@ -201,7 +182,38 @@ _.forEach([
         });
       });
 
-      it('does pop + delay + push ok', function (done) {
+      it('does push-delayed + pop ok', function (done) {
+        var msg = {
+          a: 'aaa',
+          b: 666,
+          c: {
+            ca: 'rtrtr',
+            cb: {}
+          }
+        };
+        var t0 = new Date().getTime();
+        async.series([
+          function (cb) {
+            put_msg_delayed(type, 'q1', msg, 2, cb)
+          },
+          function (cb) {
+            get_msg(type, 'q1', cb)
+          },
+        ], function (err, allres) {
+          allres[1].should.match({
+            _id: /.+/,
+            payload: msg,
+            tries: 0
+          });
+
+          var t1 = new Date().getTime();
+          (t1 - t0).should.be.approximately(2000, 100);
+
+          done(err);
+        });
+      });
+
+      it('does pop + delay + push-delayed ok', function (done) {
         var msg = {
           a: 'aaa',
           b: 666,
@@ -217,47 +229,54 @@ _.forEach([
           },
           function (cb) {
             setTimeout(function () {
-              put_msg(type, 'q1', msg, cb)
-            }, 1000);
+              put_msg_delayed(type, 'q1', msg, 2, cb)
+            }, 1000)
           }
         ], function (err, allres) {
 
           allres[0].should.match({
+            _id: /.+/,
             payload: msg,
             tries: 0
           });
 
           var t1 = new Date().getTime();
-          (t1 - t0).should.be.approximately(1000, 100);
+          (t1 - t0).should.be.approximately(3000, 100);
 
           done(err);
         });
       });
 
-      it('does pop + delay + cancel + push + pop ok', function (done) {
-        async.series ([
-          function (cb) {
-            get_msg_timeout_id(type, 'q1', 3000, 'the-first-consumer', cb);
-            cb();
-          },
-          function (cb) {setTimeout (cb, 1000)},
-          function (cb) {get_consumers (type, 'q1', cb)},
-          function (cb) {cancel_pop(type, 'q1', 'the-first-consumer', cb)},
-          function (cb) {get_consumers (type, 'q1', cb)},
-          function (cb) {setTimeout (cb, 3000)},
+      it('does push-delayed + deny + pop ok', function (done) {
+        var msg = {
+          a: 'aaa',
+          b: 666,
+          c: {
+            ca: 'rtrtr',
+            cb: {}
+          }
+        };
+        var t0 = new Date().getTime();
+        async.series([
+          function (cb) {put_msg_delayed(type, 'q1', msg, 2, cb)},
+          function (cb) {setTimeout(cb, 1000)},
+          function (cb) {get_msg(type, 'q1', cb)},
         ], function (err, allres) {
-          allres[2].should.match ([{ 
-            tid: 'the-first-consumer',
-            since: /.+/,
-            callback: 'set',
-            cleanup_timeout: 'set',
-            wakeup_timeout: 'set' 
-          }]);
 
-          allres[4].should.eql ([]);
-          done (err);
+          allres[2].should.match({
+            _id: /.+/,
+            payload: msg,
+            tries: 0
+          });
+
+          var t1 = new Date().getTime();
+          (t1 - t0).should.be.approximately(2000, 100);
+
+          done(err);
         });
       });
+
+
     });
   });
 });
