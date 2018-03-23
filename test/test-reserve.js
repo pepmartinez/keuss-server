@@ -123,25 +123,23 @@ _.forEach([
   'mongo:simple',
   'mongo:pipeline'
 ], function (type) {
-  describe('reserve-commit-rollback operations on queue type ' + type, function () {
-    describe('REST interface', function () {
-      before(function (done) {
-        BaseApp(config, function (err, app) {
-          theApp = app;
-          done(err);
-        });
+  describe('REST reserve-commit-rollback operations on queue type ' + type, function () {
+    before(function (done) {
+      BaseApp(config, function (err, app) {
+        theApp = app;
+        done(err);
       });
-
-      after(function (done) {
-        done();
-      });
-
-      it('does reserve+commit ok');
-      it('does reserve+rollback+get ok');
-      it('causes reserve+reserve+rollback to go on second consumer ok');
-      it('does reserve+commit on sched message ok');
-      it('honors rollback max retries');
-      it('honors rollback with custon delay');
     });
+
+    after(function (done) {
+      done();
+    });
+
+    it('does reserve+commit ok');
+    it('does reserve+rollback+get ok');
+    it('causes reserve+reserve+rollback to go on second consumer ok');
+    it('does reserve+commit on sched message ok');
+    it('honors rollback max retries');
+    it('honors rollback with custon delay');
   });
 });

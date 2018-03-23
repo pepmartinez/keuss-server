@@ -13,8 +13,9 @@ BaseApp (config, function (err, app) {
   if (err) return logger.error (err);
   
   var server = http.createServer (app);
-  
-  server.listen (3444, function () {
-    logger.info ('keuss server listening at port %s', 3444);
+  var port = config.http.port || 3444;
+
+  server.listen (port, function () {
+    logger.info ('keuss server listening at port %s', port);
   });
 });

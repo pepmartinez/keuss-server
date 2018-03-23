@@ -6,6 +6,13 @@ var signal_redis_pubsub = require('keuss/signal/redis-pubsub');
 var signal_local = require('keuss/signal/local');
 
 var config = {
+  http: {
+    port: 3444,
+    users: {
+      'test': 'test',
+      'usr1': 'pass1'
+    }
+  },
   backends: [{
       factory: 'mongo',
       //      disable: true,

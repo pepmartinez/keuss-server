@@ -32,7 +32,7 @@ function app (config, cb) {
     app.set ('view engine', 'jade');
   
     app.use(basicAuth({
-      users: (config.http && config.http.users) || { 'root': 'Waiwah0G' },
+      users: (config.http && config.http.users) || { 'test': 'test' },
       challenge: true,
       realm: 'Keuss'
     }));

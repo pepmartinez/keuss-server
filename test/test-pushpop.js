@@ -127,13 +127,13 @@ function cancel_pop(type, q, id, cb) {
     });
 }
 
-function get_consumers (type, q, cb) {
+function get_consumers(type, q, cb) {
   request(theApp)
-  .get('/q/' + type + '/q1/consumers')
-  .auth('test', 'toast')
-  .end (function (err, res) {
-    cb(err, res && res.body);
-  });
+    .get('/q/' + type + '/q1/consumers')
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
 }
 
 
@@ -143,120 +143,128 @@ _.forEach([
   'mongo:simple',
   'mongo:pipeline'
 ], function (type) {
-  describe('push/pop operations on queue type ' + type, function () {
-    describe('REST interface', function () {
-      before(function (done) {
-        BaseApp(config, function (err, app) {
-          theApp = app;
-          done(err);
+  describe('REST push/pop operations on queue type ' + type, function () {
+    before(function (done) {
+      BaseApp(config, function (err, app) {
+        theApp = app;
+        done(err);
+      });
+    });
+
+    after(function (done) {
+      done();
+    });
+
+    it('does push/pop ok', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+      async.series([
+        function (cb) {
+          put_msg(type, 'q1', msg, cb)
+        },
+        function (cb) {
+          get_msg(type, 'q1', cb)
+        },
+      ], function (err, allres) {
+        allres[1].should.match({
+          payload: msg,
+          tries: 0
         });
-      });
 
-      after(function (done) {
-        done();
+        done(err);
       });
+    });
 
-      it('does push/pop ok', function (done) {
-        var msg = {
-          a: 'aaa',
-          b: 666,
-          c: {
-            ca: 'rtrtr',
-            cb: {}
-          }
-        };
-        async.series([
-          function (cb) {
+    it('does pop + timeout ok', function (done) {
+      var t0 = new Date().getTime();
+      async.series([
+        function (cb) {
+          get_msg_timeout(type, 'q1', 2000, cb)
+        }
+      ], function (err, allres) {
+        allres[0].should.match({
+          timeout: true,
+          tid: /.+/
+        });
+
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(2000, 100);
+
+        done(err);
+      });
+    });
+
+    it('does pop + delay + push ok', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+      var t0 = new Date().getTime();
+      async.parallel([
+        function (cb) {
+          get_msg(type, 'q1', cb)
+        },
+        function (cb) {
+          setTimeout(function () {
             put_msg(type, 'q1', msg, cb)
-          },
-          function (cb) {
-            get_msg(type, 'q1', cb)
-          },
-        ], function (err, allres) {
-          allres[1].should.match({
-            payload: msg,
-            tries: 0
-          });
+          }, 1000);
+        }
+      ], function (err, allres) {
 
-          done(err);
+        allres[0].should.match({
+          payload: msg,
+          tries: 0
         });
+
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(1000, 100);
+
+        done(err);
       });
+    });
 
-      it('does pop + timeout ok', function (done) {
-        var t0 = new Date().getTime();
-        async.series([
-          function (cb) {
-            get_msg_timeout(type, 'q1', 2000, cb)
-          }
-        ], function (err, allres) {
-          allres[0].should.match({
-            timeout: true,
-            tid: /.+/
-          });
+    it('does pop + delay + cancel + push + pop ok', function (done) {
+      async.series([
+        function (cb) {
+          get_msg_timeout_id(type, 'q1', 3000, 'the-first-consumer', cb);
+          cb();
+        },
+        function (cb) {
+          setTimeout(cb, 1000)
+        },
+        function (cb) {
+          get_consumers(type, 'q1', cb)
+        },
+        function (cb) {
+          cancel_pop(type, 'q1', 'the-first-consumer', cb)
+        },
+        function (cb) {
+          get_consumers(type, 'q1', cb)
+        },
+        function (cb) {
+          setTimeout(cb, 3000)
+        },
+      ], function (err, allres) {
+        allres[2].should.match([{
+          tid: 'the-first-consumer',
+          since: /.+/,
+          callback: 'set',
+          cleanup_timeout: 'set',
+          wakeup_timeout: 'set'
+        }]);
 
-          var t1 = new Date().getTime();
-          (t1 - t0).should.be.approximately(2000, 100);
-
-          done(err);
-        });
-      });
-
-      it('does pop + delay + push ok', function (done) {
-        var msg = {
-          a: 'aaa',
-          b: 666,
-          c: {
-            ca: 'rtrtr',
-            cb: {}
-          }
-        };
-        var t0 = new Date().getTime();
-        async.parallel([
-          function (cb) {
-            get_msg(type, 'q1', cb)
-          },
-          function (cb) {
-            setTimeout(function () {
-              put_msg(type, 'q1', msg, cb)
-            }, 1000);
-          }
-        ], function (err, allres) {
-
-          allres[0].should.match({
-            payload: msg,
-            tries: 0
-          });
-
-          var t1 = new Date().getTime();
-          (t1 - t0).should.be.approximately(1000, 100);
-
-          done(err);
-        });
-      });
-
-      it('does pop + delay + cancel + push + pop ok', function (done) {
-        async.series ([
-          function (cb) {
-            get_msg_timeout_id(type, 'q1', 3000, 'the-first-consumer', cb);
-            cb();
-          },
-          function (cb) {setTimeout (cb, 1000)},
-          function (cb) {get_consumers (type, 'q1', cb)},
-          function (cb) {cancel_pop(type, 'q1', 'the-first-consumer', cb)},
-          function (cb) {get_consumers (type, 'q1', cb)},
-          function (cb) {setTimeout (cb, 3000)},
-        ], function (err, allres) {
-          allres[2].should.match ([{ 
-            tid: 'the-first-consumer',
-            since: /.+/,
-            callback: 'set',
-            cleanup_timeout: 'set',
-            wakeup_timeout: 'set' 
-          }]);
-
-          allres[4].should.eql ([]);
-          done (err);
-        });
+        allres[4].should.eql([]);
+        done(err);
       });
     });
   });
