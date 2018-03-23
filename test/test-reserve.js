@@ -104,6 +104,17 @@ function get_msg(type, q, cb) {
     });
 }
 
+function reserve_msg(type, q, cb) {
+  request(theApp)
+    .get('/q/' + type + '/' + q)
+    .query ({reserve: 1})
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
 function get_msg_timeout(type, q, timeout, cb) {
   request(theApp)
     .get('/q/' + type + '/' + q)
@@ -111,6 +122,50 @@ function get_msg_timeout(type, q, timeout, cb) {
       to: timeout
     })
     .expect(504)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
+function reserve_msg_timeout(type, q, timeout, cb) {
+  request(theApp)
+    .get('/q/' + type + '/' + q)
+    .query({
+      to: timeout,
+      reserve: 1
+    })
+    .expect(504)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
+function commit_msg(type, q, id, cb) {
+  request(theApp)
+    .patch('/q/' + type + '/' + q + '/commit/' + id)
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
+function rollback_msg(type, q, id, cb) {
+  request(theApp)
+    .patch('/q/' + type + '/' + q + '/rollback/' + id)
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
+function commit_or_rollback_msg(type, q, id, commit, cb) {
+  request(theApp)
+    .patch('/q/' + type + '/' + q + '/' + (commit ? 'commit' : 'rollback') + '/' + id)
+    .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
       cb(err, res && res.body);
@@ -135,11 +190,185 @@ _.forEach([
       done();
     });
 
-    it('does reserve+commit ok');
-    it('does reserve+rollback+get ok');
-    it('causes reserve+reserve+rollback to go on second consumer ok');
-    it('does reserve+commit on sched message ok');
-    it('honors rollback max retries');
+    
+    it('does reserve+commit ok', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      var id;
+      var t0 = new Date().getTime();
+      async.series([
+        function (cb) {put_msg(type, 'q1', msg, cb)},
+        function (cb) {
+          reserve_msg(type, 'q1', function (err, res) {
+            id = res._id;
+            cb (err, res);
+          });
+        },
+        function (cb) {setTimeout (cb, 1000)},
+        function (cb) {commit_msg(type, 'q1', id, cb)},
+      ], function (err, allres) {
+        allres[1].should.match({
+          _id: /.+/,
+          payload: msg,
+          tries: 0
+        });
+
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(1000, 100);
+
+        done(err);
+      });
+    });
+
+    it('does reserve+rollback+get ok', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      var id;
+      var t0 = new Date().getTime();
+      async.series([
+        function (cb) {put_msg(type, 'q1', msg, cb)},
+        function (cb) {
+          reserve_msg(type, 'q1', function (err, res) {
+            id = res._id;
+            cb (err, res);
+          });
+        },
+        function (cb) {setTimeout (cb, 1000)},
+        function (cb) {rollback_msg(type, 'q1', id, cb)},
+        function (cb) {get_msg(type, 'q1', cb)},
+      ], function (err, allres) {
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(1000, 100);
+
+        allres[1].should.match({
+          _id: /.+/,
+          payload: msg,
+          tries: 0
+        });
+
+        allres[4].should.match({
+          _id: /.+/,
+          payload: msg,
+          tries: 1
+        });
+
+        done(err);
+      });
+    });
+
+    it('causes reserve+reserve+rollback to go on second consumer ok', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      var t0 = new Date().getTime();
+      async.parallel([
+        function (cb) {
+          var id;
+          var tries;
+          async.series ([
+            function (cb) {
+              reserve_msg(type, 'q1', function (err, res) {
+                id = res._id;
+                tries = res.tries;
+                cb (err, res);
+              });
+            },
+            function (cb) {setTimeout (cb, 1000)},
+            function (cb) {commit_or_rollback_msg (type, 'q1', id, tries, cb)},
+          ], cb);
+        },
+        function (cb) {
+          var id;
+          var tries;
+          async.series ([
+            function (cb) {setTimeout (cb, 1000)},
+            function (cb) {
+              reserve_msg(type, 'q1', function (err, res) {
+                id = res._id;
+                tries = res.tries;
+                cb (err, res);
+              });
+            },
+            function (cb) {setTimeout (cb, 1000)},
+            function (cb) {commit_or_rollback_msg (type, 'q1', id, tries, cb)},
+          ], cb);
+        },
+        function (cb) {put_msg_delayed(type, 'q1', msg, 2, cb)},
+      ], function (err, allres) {
+        
+        allres[0][0].should.match({
+          _id: /.+/,
+          payload: msg,
+        });
+
+        allres[1][1].should.match({
+          _id: /.+/,
+          payload: msg,
+        });
+
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(4000, 100);
+
+        done(err);
+      });
+    });
+
+    it('does reserve+commit on sched message ok', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      var id;
+      var t0 = new Date().getTime();
+      async.series([
+        function (cb) {put_msg_delayed(type, 'q1', msg, 2, cb)},
+        function (cb) {
+          reserve_msg(type, 'q1', function (err, res) {
+            id = res._id;
+            cb (err, res);
+          });
+        },
+        function (cb) {setTimeout (cb, 1000)},
+        function (cb) {commit_msg(type, 'q1', id, cb)},
+      ], function (err, allres) {
+        allres[1].should.match({
+          _id: /.+/,
+          payload: msg,
+          tries: 0
+        });
+
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(3000, 100);
+
+        done(err);
+      });
+    });
+
     it('honors rollback with custon delay');
   });
 });
