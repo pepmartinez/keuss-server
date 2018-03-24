@@ -25,7 +25,7 @@ The config is kept in a config.js file, with this schema:
   * disable: whether to disable it, defaults to false
   * config: the keuss config for the queue factory
 
-keuss-server allows all backend types offered by keuss v. 1.3.3: redis-list, redis-ordered, mongo-simple and mongo-pipeline. However, the pipeline-specific operations are not yet supported by keuss-server
+keuss-server allows all backend types offered by keuss v. 1.3.4: redis-list, redis-ordered, mongo-simple and mongo-pipeline. However, the pipeline-specific operations are not yet supported by keuss-server
 
 Keuss-server comes with a sample config.js
 

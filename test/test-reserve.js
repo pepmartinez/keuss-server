@@ -162,6 +162,26 @@ function rollback_msg(type, q, id, cb) {
     });
 }
 
+function rollback_msg_unknown(type, q, id, cb) {
+  request(theApp)
+    .patch('/q/' + type + '/' + q + '/rollback/' + id)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res);
+    });
+}
+
+function rollback_msg_delay(type, q, id, delay, cb) {
+  request(theApp)
+    .patch('/q/' + type + '/' + q + '/rollback/' + id)
+    .query ({delay: delay})
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
 function commit_or_rollback_msg(type, q, id, commit, cb) {
   request(theApp)
     .patch('/q/' + type + '/' + q + '/' + (commit ? 'commit' : 'rollback') + '/' + id)
@@ -190,7 +210,6 @@ _.forEach([
       done();
     });
 
-    
     it('does reserve+commit ok', function (done) {
       var msg = {
         a: 'aaa',
@@ -369,6 +388,66 @@ _.forEach([
       });
     });
 
-    it('honors rollback with custon delay');
+    it('honors rollback with custon delay', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      var id;
+      var t0 = new Date().getTime();
+      async.series([
+        function (cb) {put_msg(type, 'q1', msg, cb)},
+        function (cb) {
+          reserve_msg(type, 'q1', function (err, res) {
+            id = res._id;
+            cb (err, res);
+          });
+        },
+        function (cb) {setTimeout (cb, 1000)},
+        function (cb) {rollback_msg_delay(type, 'q1', id, 2000, cb)},
+        function (cb) {get_msg(type, 'q1', cb)},
+      ], function (err, allres) {
+        var t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(3000, 100);
+
+        allres[1].should.match({
+          _id: /.+/,
+          payload: msg,
+          tries: 0
+        });
+
+        allres[4].should.match({
+          _id: /.+/,
+          payload: msg,
+          tries: 1
+        });
+
+        done(err);
+      });
+    });
+
+    it('gives 404 on rollback upon invalid id', function (done) {
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      async.series([
+        function (cb) {rollback_msg_unknown (type, 'q1', '112233445566778899001122', cb)},
+      ], function (err, allres) {
+        should(err).equal (null);
+        allres[0].status.should.equal (404)
+        done(err);
+      });
+    });
   });
 });

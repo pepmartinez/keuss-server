@@ -263,8 +263,11 @@ function get_router(scope) {
   //////////////////////////////////////////////////////////////////////////////////////
   function _rollback(req, res) {
     var q = req.__q;
+    var delay_str = (req.query || {}).delay;
+    var delay = delay_str ? parseInt (delay_str) : 0;
+    var next_t = new Date().getTime () + delay; 
 
-    q.ko(req.params.id, function (err, ret) {
+    q.ko(req.params.id, next_t, function (err, ret) {
       if (err) {
         return res.status(500).send(err);
       }
