@@ -18,12 +18,12 @@ This concerns more specifically to the stats and signaller providers used: if th
 It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire seeral keuss-server instances (or use external keuss clients) that would work as a single cluster. 
 
 The config is kept in a config.js file, with this schema:
-* http.port: port to listen in, defaults to 3444
-* http.users: all http is protected with Basic Auth; this specifies an object containing the user:password pairs
-* backends: the queue backends to connect to; they define instances of keuss queue factories, and follow this schema:
-  * factory: a name for the factory
-  * disable: whether to disable it, defaults to false
-  * config: the keuss config for the queue factory
+* `http.port`: port to listen in, defaults to 3444
+* `http.users`: all http is protected with Basic Auth; this specifies an object containing the user:password pairs
+* `backends`: the queue backends to connect to; they define instances of keuss queue factories, and follow this schema:
+  * `factory`: a name for the factory
+  * `disable`: whether to disable it, defaults to false
+  * `config`: the keuss config for the queue factory
 
 keuss-server allows all backend types offered by keuss v. 1.3.4: redis-list, redis-ordered, mongo-simple and mongo-pipeline. However, the pipeline-specific operations are not yet supported by keuss-server
 
@@ -69,6 +69,9 @@ Lists the IDs of all the pending/blocked get or reserve operations on the given 
 Cancels a pending/blocked get/reserve call. To do so, such get/reserve call must have been done with a `tid` value, which is passed as `:id` in the cancel
 
 ### Commit in queue: `PATCH /q/:type/:q/commit/:id`
-Commits a previous reserve operation. `id` is the id returned in the callba
+Commits a previous reserve operation. `id` is the `_id` inside the object returned in a previous commit
 
 ### Rollback in queue: `PATCH /q/:type/:q/rollback/:id`
+Commits a previous reserve operation. `id` is the `_id` inside the object returned in a previous commit
+Admits the following query parameters:
+* `delay`: delay in millsecs to apply to the rolled back object: it will be available for get/reserver after *delay* milliseconds. Defaults to 0, so rolled back elements are immediately available for others
