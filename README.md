@@ -1,7 +1,7 @@
 # keuss-server
 server stack and web console for keuss
 
-Keuss-server provides a REST-like interface atop [keuss](https://github.com/pepmartinez/keuss), plus a simple web console to check queues' statuses. It aims to offer all functionalities provided by keuss 
+Keuss-server provides a REST-like interface atop [keuss](https://github.com/pepmartinez/keuss), plus a simple web console to check queues' statuses. It aims to offer all functionalities provided by keuss
 
 ## Install & run
 Easiest way is to `npm install keuss-server`; then, edit the config.js file at will and run `node index.js`. 
