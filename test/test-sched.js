@@ -4,6 +4,8 @@ var request = require('supertest');
 var _ = require('lodash');
 
 var BaseApp = require('../app');
+var Scope =   require ('../Scope');
+
 var theApp;
 
 var stats_redis = require('keuss/stats/redis');
@@ -125,9 +127,13 @@ _.forEach([
 ], function (type) {
   describe('REST scheduled operations on queue type ' + type, function () {
     before(function (done) {
-      BaseApp(config, function (err, app) {
-        theApp = app;
-        done(err);
+      var scope = new Scope ();
+      scope.init (config, function (err) {
+        if (err) return done (err);
+        BaseApp(config, scope, function (err, app) {
+          theApp = app;
+          done(err);
+        });
       });
     });
 

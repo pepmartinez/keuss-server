@@ -46,6 +46,10 @@ class Scope {
         });
       });
     });
+
+    tasks.push (function (cb) {
+      self.refresh (cb);
+    });
     
     async.series (tasks, cb);
   }
