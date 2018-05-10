@@ -77,6 +77,31 @@ class QConsumer {
     logger.info ('QConsumer %s: stopped', this._cid);
   }
 
+  ack (id, cb) {
+    if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
+
+    var self = this;
+    var next_t = new Date().getTime () + 60000; 
+
+    this._q.ok (id, next_t, function (err) {
+      delete self._pending_acks[id];
+      if (cb) cb (err);
+    });
+  }
+
+  nack (id, cb) {
+    if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
+
+    var self = this;
+    var next_t = new Date().getTime () + 60000; 
+    
+    this._q.ko (id, next_t, function (err) {
+      delete self._pending_acks[id];
+      if (cb) cb (err);
+    });
+  }
+
+
   status () {
     return {
       q:            this._q.name(),
@@ -363,7 +388,7 @@ class STOMP {
       m_frm.command (SF.Commands.MESSAGE);
       m_frm.body (JSON.stringify (item.payload));
       m_frm.header ('subscription', frm.id);
-      m_frm.header ('message-id', item._id.toString());
+      m_frm.header ('message-id', frm.id + '-' + item._id.toString());
       m_frm.header ('destination', q.name()); 
       m_frm.header ('x-mature', item.mature.toString ());
       m_frm.header ('x-tries', item.tries + '');
@@ -400,14 +425,46 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_ACK (sess, frm) {
+    logger.info ('%s@stomp: got ACK, %j', sess.id, frm);
+ 
+    var arr = frm.id.split('-');
 
+    if (arr.length != 2) return this._error_in_session (sess, frm, util.format ('invalid message id %s', frm.id));
 
+    var subscr_id = arr[0];
+    var msg_id =    arr[1];
+
+    var subscr = sess.subscrs[subscr_id];
+
+    if (!subscr) return this._error_in_session (sess, frm, util.format ('nonexistent subscription %s', subscr_id));
+
+    var self = this;
+    var ack = subscr.qc.ack (msg_id, function (err) {
+      if (err) return self._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
+      logger.info ('%s@stomp: acked %s', sess.id, frm.id);
+    });
   } 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_NACK (sess, frm) {
+    logger.info ('%s@stomp: got NACK, %j', sess.id, frm);
+ 
+    var arr = frm.id.split('-');
 
+    if (arr.length != 2) return this._error_in_session (sess, frm, util.format ('invalid message id %s', frm.id));
 
+    var subscr_id = arr[0];
+    var msg_id =    arr[1];
+
+    var subscr = sess.subscrs[subscr_id];
+
+    if (!subscr) return this._error_in_session (sess, frm, util.format ('nonexistent subscription %s', subscr_id));
+
+    var self = this;
+    var ack = subscr.qc.nack (msg_id, function (err) {
+      if (err) return self._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
+      logger.info ('%s@stomp: nacked %s', sess.id, frm.id);
+    });
   } 
 
   ///////////////////////////////////////////////////////////////////////////
