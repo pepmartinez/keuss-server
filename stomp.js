@@ -160,9 +160,9 @@ class STOMP {
       var sess = self._sessions[id];
 
       if (sess) {
-        // TODO stop subscriptions' qconsumers
+        // stop subscriptions' qconsumers
         _.forEach (sess.subscrs, function (subscr, subscr_id) {
-          logger.info ('STOMP session %s closed, stopping subscription %s on %s', id, subscr_id, subscr.destination);
+          logger.info ('STOMP session %s closed, ending subscription %s on %s', id, subscr_id, subscr.destination);
           subscr.qc.stop ();
         });
 
@@ -212,7 +212,13 @@ class STOMP {
   ///////////////////////////////////////////////////////////////////////////
   _write_frm (sess, frm) {
     logger.info ('%s@stomp: returning frame, %j', sess.id, frm);
-    frm.write (sess.socket);
+
+    try {
+      frm.write (sess.socket);
+    }
+    catch (e) {
+      logger.error ('%s@stomp: error while writing frame: %s', sess.id, '' + e);
+    }
   }
 
 
@@ -372,12 +378,24 @@ class STOMP {
       id: frm.id,
       qc: qc
     };
+
+    logger.info ('%s@stomp: subscribed to %s, id %s', sess.id, frm.destination, frm.id);
+    this._honor_receipt (sess, frm);
   } 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_UNSUBSCRIBE (sess, frm) {
+    var subscr = sess.subscrs[frm.id];
 
+    if (!subscr) {
+      return this._error_in_session (sess, frm, util.format ('no subscription [%s] found', frm.id));
+    }
 
+    logger.info ('%s@stomp: subscription %s ended (destination %s)', sess.id, frm.id, subscr.destination);
+    subscr.qc.stop ();
+    
+    delete sess.subscrs[frm.id];
+    this._honor_receipt (sess, frm);
   } 
 
   ///////////////////////////////////////////////////////////////////////////
