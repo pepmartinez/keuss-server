@@ -4,6 +4,7 @@ var http =    require ('http');
 var async =   require ('async');
 
 var BaseApp = require ('./app');
+var Stomp =   require ('./stomp');
 var Scope =   require ('./Scope');
 var Logger =  require ('./Logger');
 var config =  require ('./config');
@@ -25,14 +26,15 @@ async.series ([
       var port = config.http.port || 3444;
       
       server.listen (port, function () {
-        logger.info ('keuss server listening at port %s', port);
+        logger.info ('REST server listening at port %s', port);
         cb ();
       });
     });
   },
   function (cb) {
     // init stomp server
-    cb ();
+    var stomp_server = new Stomp (config, scope);
+    stomp_server.run (cb);
   }
 ], function (err) {
   if (err) {
