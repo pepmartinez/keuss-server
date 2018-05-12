@@ -18,8 +18,12 @@ var logger = Logger ('stomp');
 class QConsumer {
   constructor (q, opts, cb) {
     this._q = q;
-    this._opts = opts;
+    this._opts = opts || {};
     this._cb = cb;
+
+    this._pop_opts = {
+      reserve: this._opts.reserve || false
+    };
 
     this._cid = uuid.v4();
     this._pending_acks = {};
@@ -30,13 +34,18 @@ class QConsumer {
 
   _a_single_iteration () {
     var self = this;
-    var tid = this._q.pop (this._cid, {}, function (err, res) {
+    var tid = this._q.pop (this._cid, this._pop_opts, function (err, res) {
       delete self._pending_tids[tid];
 
-      // TODO manage error
+      // TODO manage error?
 
       logger.info ('QConsumer %s: return from pop from queue %s, tid is %s', self._cid, self._q.name(), tid);
       
+      if (self._pop_opts.reserve && res) {
+        self._pending_acks[res._id] = new Date();
+        logger.info ('QConsumer %s: new pending ack [%s]', self._cid, res._id);
+      }
+
       self._cb (err, res);
       self._a_single_iteration ();
     });
@@ -81,9 +90,8 @@ class QConsumer {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
     var self = this;
-    var next_t = new Date().getTime () + 60000; 
 
-    this._q.ok (id, next_t, function (err) {
+    this._q.ok (id, function (err) {
       delete self._pending_acks[id];
       if (cb) cb (err);
     });
@@ -123,7 +131,6 @@ class STOMP {
     // {
     //   socket: net socket for session
     //   s: status (fresh, connected)
-    //   v: proto version (null if fresh)
     //   sess: SF session 
     //   subscrs: {} 
     // }
@@ -162,7 +169,6 @@ class STOMP {
 
       res[id] = {
         status: s.s,
-        v: s.v,
         subscrs: subscrs_status
       };
     });
@@ -323,7 +329,12 @@ class STOMP {
     if (sess.s != 'fresh') return this._error_in_session (sess, frm, 'already connected');
     
     sess.s = 'connected';
-    sess.v = frm['accept-version'];
+    var vers = frm['accept-version'];
+
+    // error if 1.2 not accepted
+    if (!vers['1.2']) {
+      return this._error_in_session (sess, frm, 'only STOMP version 1.2 is supported');
+    }
 
     var res_frm = new SF.Frame ();
     res_frm.command (SF.Commands.CONNECTED);
@@ -370,10 +381,26 @@ class STOMP {
     var self = this;
     logger.info ('%s@stomp: got SUBSCRIBE, %j', sess.id, frm);
     
+    var subscribe_opts = {};
+
+    // check ack level
+    switch (frm.ack) {
+      case 'auto':
+        subscribe_opts.reserve = false;
+        break;
+
+      case 'client-individual':
+        subscribe_opts.reserve = true;
+        break;
+
+      default:
+        return self._error_in_session (sess, frm, util.format ('ack level [%s] not supported', frm.ack));
+    }
+
     var q = this._get_queue (frm.destination);
     if (_.isString (q)) return self._error_in_session (sess, frm, q);
 
-    var qc = new QConsumer (q, {}, function (err, item) {
+    var qc = new QConsumer (q, subscribe_opts, function (err, item) {
       logger.info ('got elem for subscr: %j - %j', err, item, {});
 
       if (sess.s == 'ended') {
@@ -408,6 +435,7 @@ class STOMP {
     this._honor_receipt (sess, frm);
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_UNSUBSCRIBE (sess, frm) {
     var subscr = sess.subscrs[frm.id];
@@ -422,6 +450,7 @@ class STOMP {
     delete sess.subscrs[frm.id];
     this._honor_receipt (sess, frm);
   } 
+
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_ACK (sess, frm) {
@@ -445,6 +474,7 @@ class STOMP {
     });
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_NACK (sess, frm) {
     logger.info ('%s@stomp: got NACK, %j', sess.id, frm);
@@ -467,6 +497,7 @@ class STOMP {
     });
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_DISCONNECT (sess, frm) {
     logger.info ('%s@stomp: got DISCONNECT, %j', sess.id, frm);
@@ -476,35 +507,42 @@ class STOMP {
     sess.socket.end ();
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_RECEIPT (sess, frm) {
     this._unexpected (sess, frm);
   } 
+
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_CONNECTED (sess, frm) {
     this._unexpected (sess, frm);
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_ERROR (sess, frm) {
     this._unexpected (sess, frm);
   }
+
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_MESSAGE (sess, frm) {
     this._unexpected (sess, frm);
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_BEGIN (sess, frm) {
     this._not_implemented (sess, frm);
   } 
 
+
   ///////////////////////////////////////////////////////////////////////////
   _frame_COMMIT (sess, frm) {
     this._not_implemented (sess, frm);
   } 
+
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_ABORT (sess, frm) {
