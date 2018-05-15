@@ -1,11 +1,12 @@
 * REST
 * STOMP
   + add tests, tests, tests
-  + add http instrocpection
+  + add auth?
+  + add http introspection (minimally done)
   + implement keepalives
-  + add filer grain config for:
-    - delay on nack
-  + profile
+  + add finer grain config for:
+    - delay/exp-decay on nack
+  + profile cpu/mem
   + add subscribe support for:
     - window size
     - parallel consumers

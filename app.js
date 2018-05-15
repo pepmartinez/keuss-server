@@ -11,7 +11,7 @@ var Logger = require ('./Logger');
 var logger = Logger ('app');
 
 
-function app (config, scope, cb) {
+function app (config, scope, extra_init, cb) {
   var app = express ();
   
   app.set ('views', path.join (__dirname, 'views'));
@@ -33,6 +33,8 @@ function app (config, scope, cb) {
   app.get ('/', function (req, res) {
     res.render ('index', {title: 'Job Queues'});
   });
+
+  if (extra_init) extra_init (app);
 
   app.use (function (err, req, res, next) {
     logger.error (err.stack);

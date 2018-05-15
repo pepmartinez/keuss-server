@@ -13,6 +13,11 @@ var config = {
       'usr1': 'pass1'
     }
   },
+  stomp: {
+    port: 61613,
+    keepalive_interval: 2000,
+    read_timeout: 12000
+  },
   backends: [{
       factory: 'mongo',
       //      disable: true,
