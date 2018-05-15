@@ -135,6 +135,9 @@ class STOMP {
     //   subscrs: {} 
     // }
     this._sessions = {};
+
+    var self = this;
+    setInterval (function () {self._keep_alive ()}, this._config.keepalive_interval || 1000);
   }
 
 
@@ -149,6 +152,7 @@ class STOMP {
     this._server.listen (port, function (err) {
       if (err) return cb (err);
       logger.info ('STOMP server listening on port %d', port);
+      cb ();
     });
   }
 
@@ -169,11 +173,44 @@ class STOMP {
 
       res[id] = {
         status: s.s,
+        last_read: s.sess.last_read(),
         subscrs: subscrs_status
       };
     });
 
-    return res;
+    return {sessions: res};
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////
+  _keep_alive () {
+    logger.info ('keepalive!');
+
+    var self = this;
+
+    _.forEach (this._sessions, function (s, id) {
+      var rdelta_t = (new Date ().getTime()) - (s.sess.last_read().getTime ());
+      var wdelta_t = (new Date ().getTime()) - (s.sess.last_write().getTime ());
+
+      logger.info ('keepalive@%s: checking, rdelta is %s, wdelta is %s, hb is %j', id, rdelta_t, wdelta_t, s.heartbeat);
+
+      // do we need to cut it off?
+      if (rdelta_t > s.heartbeat[0]) {
+        logger.info ('keepalive@%s: channel silent for too long (%d msecs), closing it', id, rdelta_t);
+        s.s = 'ended';
+        s.sess.destroy ();
+      }
+      else {
+        // do we need to send ping?
+        if (
+          (s.heartbeat[1] > self._config.keepalive_interval) && 
+          (wdelta_t > (s.heartbeat[1] - self._config.keepalive_interval))
+        ) {
+          logger.info ('keepalive@%s: sending ping', id);
+          s.sess.ping ();
+        }
+      }
+    });
   }
 
 
@@ -199,10 +236,10 @@ class STOMP {
 
         delete self._sessions[id];
 
-        logger.info ('STOMP session %s closed, sessions: %j', id, self.status (), {});
+        logger.info ('STOMP session %s closed', id);
       }
       else {
-        logger.info ('STOMP session %s reported close but was not found, sessions: %j', id, self.status (), {});
+        logger.info ('STOMP session %s reported close but was not found', id);
       }
     });
 
@@ -233,10 +270,14 @@ class STOMP {
       s: 'fresh',
       v: null,
       sess: ss,
+      heartbeat: [
+        this._config.read_timeout,
+        0
+      ],
       subscrs: {}
     };
 
-    logger.info ('STOMP session %s created, sessions: %j', id, this.status ());
+    logger.info ('STOMP session %s created', id);
   }
 
 
@@ -245,7 +286,7 @@ class STOMP {
     logger.info ('%s@stomp: returning frame, %j', sess.id, frm);
 
     try {
-      frm.write (sess.socket);
+      sess.sess.send (frm);
     }
     catch (e) {
       logger.error ('%s@stomp: error while writing frame: %s', sess.id, '' + e);
@@ -268,7 +309,7 @@ class STOMP {
 
     // fire session end
     sess.s = 'ended';
-    sess.socket.end ();
+    sess.sess.destroy ();
   }
 
 
@@ -336,9 +377,17 @@ class STOMP {
       return this._error_in_session (sess, frm, 'only STOMP version 1.2 is supported');
     }
 
+    // store heartbeat data
+    var hb = frm['heart-beat'];
+    sess.heartbeat = [
+      hb[0] || this._config.read_timeout,
+      hb[1]
+    ];
+
     var res_frm = new SF.Frame ();
     res_frm.command (SF.Commands.CONNECTED);
     res_frm.header ('version', '1.2');
+    res_frm.header ('heart-beat', hb[1] + ',' + hb[0]);
     this._write_frm (sess, res_frm);
   } 
 
@@ -504,7 +553,7 @@ class STOMP {
     this._honor_receipt (sess, frm);
 
     // fire session end
-    sess.socket.end ();
+    sess.sess.end ();
   } 
 
 

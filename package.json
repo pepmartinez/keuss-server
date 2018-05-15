@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "keuss": "1.3.5",
-    "stomp-frames": "1.0.0",
+    "stomp-frames": "1.0.1",
     "async": "2.6.0",
     "lodash": "4.17.5",
     "express": "4.16.2",
