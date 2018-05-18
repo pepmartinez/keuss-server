@@ -196,7 +196,7 @@ function commit_or_rollback_msg(type, q, id, commit, cb) {
 
 
 _.forEach([
-  'redis:oq',
+//  'redis:oq',
   'mongo:simple',
   'mongo:pipeline'
 ], function (type) {
@@ -205,7 +205,7 @@ _.forEach([
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        BaseApp(config, scope, function (err, app) {
+        BaseApp(config, scope, function () {}, function (err, app) {
           theApp = app;
           done(err);
         });
@@ -246,7 +246,7 @@ _.forEach([
         });
 
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(1000, 100);
+        (t1 - t0).should.be.approximately(1000, 200);
 
         done(err);
       });

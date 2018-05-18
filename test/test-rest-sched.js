@@ -130,7 +130,7 @@ _.forEach([
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        BaseApp(config, scope, function (err, app) {
+        BaseApp(config, scope, function () {}, function (err, app) {
           theApp = app;
           done(err);
         });

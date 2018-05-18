@@ -141,16 +141,16 @@ function get_consumers(type, q, cb) {
 
 _.forEach([
   'redis:oq',
-  'redis:list',
-  'mongo:simple',
-  'mongo:pipeline'
-], function (type) {
+//  'redis:list',
+//  'mongo:simple',
+//  'mongo:pipeline'
+], function (type) { 
   describe('REST push/pop operations on queue type ' + type, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        BaseApp(config, scope, function (err, app) {
+        BaseApp(config, scope, function () {}, function (err, app) {
           theApp = app;
           done(err);
         });
@@ -218,11 +218,11 @@ _.forEach([
       var t0 = new Date().getTime();
       async.parallel([
         function (cb) {
-          get_msg(type, 'q1', cb)
+          get_msg(type, 'q1', cb);
         },
         function (cb) {
           setTimeout(function () {
-            put_msg(type, 'q1', msg, cb)
+            put_msg(type, 'q1', msg, cb);
           }, 1000);
         }
       ], function (err, allres) {
