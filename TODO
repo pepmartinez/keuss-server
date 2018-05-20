@@ -2,15 +2,8 @@
   + better logger
 * REST
 * STOMP
-  + add tests, tests, tests       (minimally done)
+  + add tests, tests, tests        (minimally done)
   + add auth?
-  + add http introspection        (minimally done)
-  + implement keepalives          (done)
-  + add schedule control          (done)
-  + add finer grain config for:
-    - delay/exp-decay on nack     (done)
+  + add http introspection         (minimally done)
   + profile cpu/mem
-  + add subscribe support for:
-    - window size (deflt null)
-    - parallel consumers (deflt 1)
 

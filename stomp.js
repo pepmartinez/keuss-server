@@ -5,11 +5,10 @@ var net =    require ('net');
 var uuid =   require ('uuid');
 var util =   require ('util');
 var _ =      require ('lodash');
+var SF =     require ('stomp-frames');
 
 var Scope =  require ('./Scope');
 var Logger = require ('./Logger');
-
-var SF = require ('stomp-frames');
 
 var logger = Logger ('stomp');
 
@@ -27,16 +26,46 @@ class QConsumer {
     };
 
     this._parallel = opts.parallel || 1;
+    this._wsize =    opts.wsize || 1000;
+
     this._cid = uuid.v4();
     this._pending_acks = {};
     this._pending_tids = {};
+    this._waiting_for_window = [];
 
     logger.verbose ('QConsumer %s: created', this._cid);
   }
 
   ///////////////////////////////////////////
+  _window_used () {
+    return _.size (this._pending_acks) + _.size (this._pending_tids);
+  }
+
+  ///////////////////////////////////////////
+  _window_release () {
+    logger.debug ('QConsumer %s: trying window releases, (max %d, used %d), %d in wait, releasing a waiting consumer' , this._cid, this._wsize, this._window_used (), this._waiting_for_window.length);
+    
+    if (this._waiting_for_window.length == 0) return;
+
+    logger.debug ('QConsumer %s: window release, (max %d, used %d), releasing a waiting consumer' , this._cid, this._wsize, this._window_used ());
+    var elem = this._waiting_for_window.shift();
+    setImmediate (elem);
+  }
+
+  ///////////////////////////////////////////
   _a_single_iteration (pcid) {
     var self = this;
+
+    if (this._window_used () >= this._wsize) {
+      logger.verbose ('QConsumer %s: window full (max %d, used %d), waiting for release' , pcid, this._wsize, this._window_used ());
+
+      this._waiting_for_window.push (function () {
+        self._a_single_iteration (pcid);
+      });
+      
+      return;
+    }
+
     var tid = this._q.pop (pcid, this._pop_opts, function (err, res) {
       delete self._pending_tids[tid];
 
@@ -48,12 +77,17 @@ class QConsumer {
         self._pending_acks[res._id] = new Date();
         logger.debug ('QConsumer %s: new pending ack [%s]', pcid, res._id);
       }
+      else {
+        logger.debug ('QConsumer %s: popped: window is -> (max %d, used %d)', pcid, self._wsize, self._window_used ());
+        self._window_release ();
+      }
 
       self._cb (err, res);
       setImmediate (function () {self._a_single_iteration (pcid);});
     });
 
     this._pending_tids[tid] = new Date();
+    logger.debug ('QConsumer %s: pop: window is -> (max %d, used %d)', pcid, this._wsize, this._window_used ());
     logger.verbose ('QConsumer %s: getting from queue %s, tid is %s', pcid, this._q.name(), tid);
   }
 
@@ -101,6 +135,8 @@ class QConsumer {
 
     this._q.ok (id, function (err) {
       delete self._pending_acks[id];
+      logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', self._cid, self._wsize, self._window_used ());
+      self._window_release ();
       if (cb) cb (err);
     });
   }
@@ -115,6 +151,8 @@ class QConsumer {
 
     this._q.ko (id, next_t, function (err) {
       delete self._pending_acks[id];
+      logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d)', self._cid, self._wsize, self._window_used ());
+      self._window_release ();
       if (cb) cb (err);
     });
   }
@@ -126,8 +164,9 @@ class QConsumer {
       opts:         this._opts,
       cid:          this._cid,
       pending_acks: this._pending_acks,
-      pending_tids: this._pending_tids
-    }
+      pending_tids: this._pending_tids,
+      wsize:        this._wsize
+    };
   }
 }
 
@@ -481,6 +520,7 @@ class STOMP {
     }
 
     if (frm.header('x-parallel')) subscribe_opts.parallel = (parseInt (frm.header('x-parallel')) || 1);
+    if (frm.header('x-wsize'))    subscribe_opts.wsize =    (parseInt (frm.header('x-wsize'))    || 1000);
 
     var qc = new QConsumer (q, subscribe_opts, function (err, item) {
       logger.debug ('got elem for subscr: %j - %j', err, item, {});

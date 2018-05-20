@@ -17,7 +17,7 @@ else {
   _logger = new (winston.Logger)({
     transports: [
       new (winston.transports.Console)({ 
-        level: 'verbose',
+        level: 'info',
         colorize: true,
         humanReadableUnhandledException: true,
         timestamp: true
