@@ -28,7 +28,7 @@
     "keuss": "./index.js"
   },
   "dependencies": {
-    "keuss": "1.3.6",
+    "keuss": "1.3.7",
     "stomp-frames": "1.0.1",
     "async": "2.6.0",
     "lodash": "4.17.5",

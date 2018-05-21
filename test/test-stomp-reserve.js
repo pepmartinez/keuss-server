@@ -117,9 +117,10 @@ _.forEach([
     });
 
     after(function (done) {
-      stomp_server.end (done);
+      stomp_server.end (function () {
+        setTimeout (done, 500);
+      });
     });
-
     
     it('does push/reserve/commit ok', function (done) {
       var q = '/' + type + '/stomp_test_2';

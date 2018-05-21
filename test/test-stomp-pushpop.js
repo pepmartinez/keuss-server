@@ -118,7 +118,9 @@ _.forEach([
     });
 
     after(function (done) {
-      stomp_server.end (done);
+      stomp_server.end (function () {
+        setTimeout (done, 500);
+      });
     });
 
     it('does push/pop ok, ack to auto', function (done) {

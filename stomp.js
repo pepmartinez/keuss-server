@@ -93,7 +93,6 @@ class QConsumer {
 
   ///////////////////////////////////////////
   start () {
-    // TODO run parallels ?
     for (var i = 0; i < this._parallel; i++) {
       this._a_single_iteration (this._cid + '--' + i);
     }
@@ -209,9 +208,15 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   end (cb) {
-    this._server.close (cb);
+    this._server.close (function () {
+      // end all sessions
+      _.forEach (this._sessions, function (v, k) {
+        v.s = 'ended';
+        v.sess.destroy();
+      });
 
-    // TODO end all sessions
+      cb ();
+    });
   }
 
 
@@ -304,7 +309,6 @@ class STOMP {
     var ss = new SF.StompSession(socket);
 
     ss.on ('frame', function (frm) {
-      // TODO ensure session is active (self._sessions[id] exists)
       logger.debug ('[STOMP session %s] got frame %j', id, frm, {});
       
       var sess = self._sessions[id];
