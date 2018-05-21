@@ -1,7 +1,7 @@
 # keuss-server
-server stack and web console for keuss
+Job Queues' server accesible via STOMP and REST, built with keuss
 
-Keuss-server provides a REST-like interface atop [keuss](https://github.com/pepmartinez/keuss), plus a simple web console to check queues' statuses. It aims to offer all functionalities provided by keuss
+Keuss-server provides STOMP and REST-like interfaces atop [keuss](https://github.com/pepmartinez/keuss), plus a simple web console to check queues' statuses. It aims to offer all functionalities provided by keuss
 
 ## Install & run
 Easiest way is to `npm install keuss-server`; then, edit the config.js file at will and run `node index.js`. 
@@ -11,23 +11,26 @@ Keuss-server dumps a not-very-verbose log to stdout; setting env var `KEUSS_SERV
 keuss-server comes with mocha tests, runnable with the usual `npm test`. It expects a local running redis server, and a local running mongodb server (just as they are once installed in ubuntu, for example)
 
 ## Configuration 
-Keuss-server comprises basically a set of keuss cleint objects plus an express app to manage them; as such, it works largely as if it were any other keuss app
+Keuss-server's core functionality is provided by a set of keuss client objects, plus a REST iterface (express) and a STOMP layer on top; as such, it works largely as if it were any other keuss app
 
-This concerns more specifically to the stats and signaller providers used: if the defaut ones are used (backed by memory and therefore bound to a single process) the keuss-server will work pretty much fune, but will be totally self-contain: the queues could be used externally, but only in a degraded state where the stats are not updated and no signalling is present (see keuss' docs for more info)
+This concerns more specifically to the stats and signaller providers used: if the defaut ones are used (backed by memory and therefore bound to a single process) the keuss-server will work pretty much fine, but will be totally self-contain: the queues could be used externally, but only in a degraded state where the stats are not shared and no signalling is present (see keuss' docs for more info)
 
 It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire seeral keuss-server instances (or use external keuss clients) that would work as a single cluster. 
 
 The config is kept in a config.js file, with this schema:
-* `http.port`: port to listen in, defaults to 3444
+* `http.port`: port to listen to for HTTP interface, defaults to 3444
 * `http.users`: all http is protected with Basic Auth; this specifies an object containing the user:password pairs
+*  `stomp.port`: port to listen to for STOMP clients, defaults to 61613
+*  `stomp.keepalive_interval`: period in millisecs for the timeout checks, defaults to 2000. The stomp stack would check all active connections every so millisecs to see if a keepalive is needed, or a connection is to be closed
+*  `stomp.read_timeout`: millisecs of inactivity that would cause a connection to be deemed dead, when no session is yet opened or when the client states it will send no keepaives. Defaults to 12000
 * `backends`: the queue backends to connect to; they define instances of keuss queue factories, and follow this schema:
   * `factory`: a name for the factory
   * `disable`: whether to disable it, defaults to false
   * `config`: the keuss config for the queue factory
 
-keuss-server allows all backend types offered by keuss v. 1.3.4: redis-list, redis-ordered, mongo-simple and mongo-pipeline. However, the pipeline-specific operations are not yet supported by keuss-server
+keuss-server allows all backend types offered by keuss v1.3.7: redis-list, redis-ordered, mongo-simple and mongo-pipeline. However, the pipeline-specific operations are not yet supported by keuss-server
 
-Keuss-server comes with a sample config.js
+Keuss-server comes with a sample config.js with queues of the 4 types supported by keuss, using local redis & mongodb servers
 
 ## Web Console
 If you're running keuss-server in localhost, and the http.port is set to 3456, open a browser at `http://localhost:3456` and you will get a simple web console showing a table with all the queues found and information about them
@@ -75,3 +78,22 @@ Commits a previous reserve operation. `id` is the `_id` inside the object return
 Commits a previous reserve operation. `id` is the `_id` inside the object returned in a previous commit
 Admits the following query parameters:
 * `delay`: delay in millsecs to apply to the rolled back object: it will be available for get/reserver after *delay* milliseconds. Defaults to 0, so rolled back elements are immediately available for others
+
+## STOMP stack
+The included STOMP stack supports version 1.2 only of STOMP, with the following exceptions:
+* there is no support for transactions, so frames BEGIN, COMMIT and ABORT are not supported
+* On SUBSCRIBE, ack type *client* is not supported; you'd need to use *client-individual* and emit ack/nack for each message. Also, *client-individual* is also not supported on queues lacking reserve support (type redis:list)
+* the *content-type* is limited to be `application/json` only
+* On NACK frames:
+  * a NACKed message will be delayed by 5 secs; that is, a NACKed message will not be reserved again (by any keuss client) until at least 5 secs have elapsed 
+  * there is no limit of retries
+
+There are also a few additions on top of the standard STOMP:
+* support for parallel *consumers* on subscriptions: more than one consumer can be used on any given subscription to pop/reserve elements from the underlying queue, just pass an extra header `x-parallel` on the SUBSCRIBE frame with the desired number of parallel consumers (defaults to 1)
+* support for window size to limit the number of *in flight* messages on subscriptions: *in flight* messages are messages waiting to be acked/nacked, but also consumers waiting for a pop-from-queue. Default window size is 1000, but it can be specified by passing a header `x-wsize` on the SUBSCRIBE frame
+* delay/scheduling in SEND/NACK: messages can be delayed or scheduled for later on SEND frames, but also when NACKing a message. Simply use one of those headers (if none used, it will assume `x-delta-t: 0`):
+  * `x-next-t`: UNIX time in milliseconds, to set an absolute time
+  * `x-delta-t`: a delta in milliseconds from mow, for a relative time
+* extra info in MESSAGE: some extra info is included on each MESSAGE frame returned, to ease retries and/or better management:
+  * `x-mature`: ISO timestamp when the message became elligible for pop/reserve (mature)
+  * `x-tries`: number of tries of this message. Each NACK increments this value, so this can be used in conjunction with `x-delta-t` to implement custom delays on failing elements, or limiting the number fo retries
