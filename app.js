@@ -8,7 +8,7 @@ var basicAuth =  require ('express-basic-auth');
 var routes_q =   require ('./routes/q');
 
 var Logger = require ('./Logger');
-var logger = Logger ('app');
+var logger = Logger.logger ('app');
 
 
 function app (config, scope, extra_init, cb) {
@@ -27,7 +27,7 @@ function app (config, scope, extra_init, cb) {
   app.use (bodyParser.urlencoded ({extended: true}));
   app.use (bodyParser.json ());
   
-  app.use ('/q', routes_q (scope));
+  app.use ('/q', routes_q (config, scope));
     
   // main page
   app.get ('/', function (req, res) {

@@ -7,16 +7,10 @@ var signal_local = require('keuss/signal/local');
 
 var config = {
   http: {
-    port: 3444,
     users: {
       'test': 'test',
       'usr1': 'pass1'
     }
-  },
-  stomp: {
-    port: 61613,
-    keepalive_interval: 2000,
-    read_timeout: 12000
   },
   backends: [{
       factory: 'mongo',

@@ -17,9 +17,31 @@ This concerns more specifically to the stats and signaller providers used: if th
 
 It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire seeral keuss-server instances (or use external keuss clients) that would work as a single cluster. 
 
-The config is kept in a config.js file, with this schema:
+The config is composed using [cascade-config](https://github.com/pepmartinez/cascade-config) with the following loaders:
+* defaults: 
+  ```
+  { 
+    http: {
+      port: 3444,
+      users: {}
+    },
+    stomp: {
+      port: 61613,
+      keepalive_interval: 2000,
+      read_timeout: 12000
+    },
+    backends: []
+  }
+  ```
+* file at `__dirname + '/etc/config.js`, optional
+* file at   `__dirname + '/etc/config-{env}.js`, optional
+* env vars starting with `KEUSS_`
+* command line args
+
+For more information about how the config is specified and composed please see [here](https://github.com/pepmartinez/cascade-config/blob/master/README.md). Those are the valid conguration items:
 * `http.port`: port to listen to for HTTP interface, defaults to 3444
 * `http.users`: all http is protected with Basic Auth; this specifies an object containing the user:password pairs
+* `log.level`: a `winston` textual log level, such as `debug` or `verbose`. Defaults to `info`
 *  `stomp.port`: port to listen to for STOMP clients, defaults to 61613
 *  `stomp.keepalive_interval`: period in millisecs for the timeout checks, defaults to 2000. The stomp stack would check all active connections every so millisecs to see if a keepalive is needed, or a connection is to be closed
 *  `stomp.read_timeout`: millisecs of inactivity that would cause a connection to be deemed dead, when no session is yet opened or when the client states it will send no keepaives. Defaults to 12000

@@ -10,7 +10,7 @@ var SF =     require ('stomp-frames');
 var Scope =  require ('./Scope');
 var Logger = require ('./Logger');
 
-var logger = Logger ('stomp');
+var logger = Logger.logger ('stomp');
 
 
 

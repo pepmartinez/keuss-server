@@ -1,53 +1,81 @@
-#!/usr/bin/env node
-
 var http =    require ('http');
 var async =   require ('async');
+var CC =      require ('cascade-config');
 
-var BaseApp = require ('./app');
-var Stomp =   require ('./stomp');
-var Scope =   require ('./Scope');
-var Logger =  require ('./Logger');
-var config =  require ('./config');
-
-var logger = Logger ('main');
-
-var scope = new Scope ();
-var stomp_server;
-var app;
-
-async.series ([
-  function (cb) {
-    scope.init (config, cb);
+var cconf = new CC();
+var defaults = { 
+  http: {
+    port: 3444,
+    users: {}
   },
-  function (cb) {
-    // init stomp server
-    stomp_server = new Stomp (config, scope);
-    stomp_server.run (cb);
+  stomp: {
+    port: 61613,
+    keepalive_interval: 2000,
+    read_timeout: 12000
   },
-  function (cb) {
-    // init http/rest server
-    var extra_init = function (app) {
-      app.get ('/stomp/status', function (req, res){
-        res.send (stomp_server.status())
-      })
-    };
+  backends: []
+};
+
+cconf
+  .obj (defaults)
+  .file (__dirname + '/etc/config.js',       {ignore_missing: true})
+  .file (__dirname + '/etc/config-{env}.js', {ignore_missing: true})
+  .env ({prefix: 'KEUSS_'})
+  .args ()
+  .done (function (err, config) {
+    if (err) {
+      var logger = Logger ('main');
+      logger.error (err);
+      process.exit (1);
+    }
     
-    BaseApp (config, scope, extra_init, function (err, app) {
-      if (err) return cb (err);
+    var Logger =  require ('./Logger');
+    Logger.init (config.log);
+    var logger = Logger.logger ('main');
+
+    var BaseApp = require ('./app');
+    var Stomp =   require ('./stomp');
+    var Scope =   require ('./Scope');
+
+    var stomp_server;
+    var app;
+    var scope = new Scope ();
+
+    async.series ([
+      function (cb) {
+      scope.init (config, cb);
+    },
+    function (cb) {
+      // init stomp server
+      stomp_server = new Stomp (config, scope);
+      stomp_server.run (cb);
+    },
+    function (cb) {
+      // init http/rest server
+      var extra_init = function (app) {
+        app.get ('/stomp/status', function (req, res){
+          res.send (stomp_server.status());
+        });
+      };
+    
+      BaseApp (config, scope, extra_init, function (err, app) {
+        if (err) return cb (err);
         
-      var server = http.createServer (app);
-      var port = config.http.port || 3444;
+        var server = http.createServer (app);
+        var port = config.http.port || 3444;
       
-      server.listen (port, function () {
-        logger.info ('REST server listening at port %s', port);
-        cb ();
+        server.listen (port, function () {
+          logger.info ('REST server listening at port %s', port);
+          cb ();
+        });
       });
-    });
-  }
-], function (err) {
-  if (err) {
-    logger.error (err);
-    process.exit (1);
-  }
+    }
+  ], function (err) {
+    if (err) {
+      logger.error (err);
+      process.exit (1);
+    }
+  });
 });
+
 

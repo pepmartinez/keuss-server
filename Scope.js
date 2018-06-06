@@ -5,7 +5,7 @@ var _ =      require ('lodash');
 
 var Logger = require ('./Logger');
 
-var logger = Logger ('scope');
+var logger = Logger.logger ('scope');
 
 class Scope {
   //////////////////////////////
