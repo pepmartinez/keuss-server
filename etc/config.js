@@ -1,10 +1,4 @@
 
-var stats_redis = require('keuss/stats/redis');
-var stats_mem = require('keuss/stats/mem');
-
-var signal_redis_pubsub = require('keuss/signal/redis-pubsub');
-var signal_local = require('keuss/signal/local');
-
 var config = {
   http: {
     users: {
@@ -12,56 +6,92 @@ var config = {
       'usr1': 'pass1'
     }
   },
-  backends: [{
-      factory: 'mongo',
-      //      disable: true,
-      config: {
-        url: 'mongodb://localhost:27017/keuss',
-        pollInterval: 17000,
-        stats: {
-          provider: new stats_redis(),
-        },
-        signaller: {
-          provider: new signal_redis_pubsub()
+  
+  stats: {
+    redis: {
+      factory: 'redis',
+      config : {
+        Redis: {
+          port: 6379,
+          host: 'localhost',
+      //    family: 4,
+      //    password: 'xxxx',
+      //    db: 6
         }
+      }
+    }
+  },
+
+  signallers: {
+    redis: {
+      factory: 'redis-pubsub',
+      config : {
+        Redis: {
+          port: 6379,
+          host: 'localhost',
+      //    family: 4,
+      //    password: 'xxxx',
+      //    db: 6
+        }
+      }
+    }
+  },
+
+  backends: [
+    {
+      factory: 'mongo',
+      disable: false,
+      config: {
+        url: '{keuss.mongo.url:mongodb://localhost:27017/keuss}',
+        pollInterval: 17000,
+        stats: 'redis',
+        signaller: 'redis'
       }
     },
     {
       factory: 'pl-mongo',
-      //      disable: true,
+      disable: false,
       config: {
-        url: 'mongodb://localhost:27017/keuss',
+        url: '{keuss.plmongo.url:mongodb://localhost:27017/keuss}',
         pollInterval: 17000,
-        stats: {
-          provider: new stats_redis(),
-        },
-        signaller: {
-          provider: new signal_redis_pubsub()
-        }
+        stats: 'redis',
+        signaller: 'redis'
       }
     },
     {
       factory: 'redis-list',
+      disable: false,
       config: {
-        pollInterval: 17000,
-        stats: {
-          provider: new stats_redis(),
+        redis: {
+          Redis: {
+            port: 6379,
+            host: 'localhost',
+        //    family: 4,
+        //    password: 'xxxx',
+        //    db: 6
+          }
         },
-        signaller: {
-          provider: new signal_redis_pubsub()
-        }
+        pollInterval: 17000,
+        stats: 'redis',
+        signaller: 'redis'
       }
     },
     {
       factory: 'redis-oq',
+      disable: false,
       config: {
-        pollInterval: 17000,
-        stats: {
-          provider: new stats_redis(),
+        redis: {
+          Redis: {
+            port: 6379,
+            host: 'localhost',
+        //    family: 4,
+        //    password: 'xxxx',
+        //    db: 6
+          }
         },
-        signaller: {
-          provider: new signal_redis_pubsub()
-        }
+        pollInterval: 17000,
+        stats: 'redis',
+        signaller: 'redis'
       }
     }
   ]

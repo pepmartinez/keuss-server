@@ -24,8 +24,7 @@ cconf
   .args ()
   .done (function (err, config) {
     if (err) {
-      var logger = Logger ('main');
-      logger.error (err);
+      console.error (err);
       process.exit (1);
     }
     
