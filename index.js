@@ -20,7 +20,7 @@ cconf
   .obj (defaults)
   .file (__dirname + '/etc/config.js',       {ignore_missing: true})
   .file (__dirname + '/etc/config-{env}.js', {ignore_missing: true})
-  .env ({prefix: 'KEUSS_'})
+  .env ({prefix: 'KS_'})
   .args ()
   .done (function (err, config) {
     if (err) {
