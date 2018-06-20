@@ -8,31 +8,54 @@ var config = {
   },
   
   stats: {
-    redis: {
-      factory: 'redis',
-      config : {
-        Redis: {
-          port: 6379,
-          host: 'localhost',
+    memory: {
+      factory: 'mem',
+      config : {}
+    },
+//    redis: {
+//      factory: 'redis',
+//      config : {
+//        Redis: {
+//          port: '#int:{keuss.redis.port:6379}',
+//          host: '{keuss.redis.host:localhost}',
+      //    db: 3,
       //    family: 4,
       //    password: 'xxxx',
-      //    db: 6
-        }
+//        }
+//      }
+//    },
+    mongo: {
+      factory: 'mongo',
+      config: {
+        url:  '{keuss.stats.mongo.url:mongodb://localhost:27017/keuss_stats}',
+        coll: '{keuss.stats.mongo.coll:keuss_stats}'
       }
     }
   },
 
   signallers: {
-    redis: {
-      factory: 'redis-pubsub',
-      config : {
-        Redis: {
-          port: 6379,
-          host: 'localhost',
+    local: {
+      factory: 'local',
+      config : {}
+    },
+//    redis: {
+//      factory: 'redis-pubsub',
+//      config : {
+//        Redis: {
+//          port: '#int:{keuss.redis.port:6379}',
+//          host: '{keuss.redis.host:localhost}',
       //    family: 4,
       //    password: 'xxxx',
       //    db: 6
-        }
+//        }
+//      }
+//    },
+    mongo: {
+      factory: 'mongo-capped',
+      config: {
+        mongo_url: '{keuss.signal.mongocapped.url:mongodb://localhost:27017/keuss_signal}',
+        mongo_opts: {},
+        channel: '{keuss.signal.mongocapped.channel:default}',
       }
     }
   },
@@ -43,53 +66,53 @@ var config = {
       disable: false,
       config: {
         url: '{keuss.mongo.url:mongodb://localhost:27017/keuss}',
-        pollInterval: 17000,
-        stats: 'redis',
-        signaller: 'redis'
+        pollInterval: '#int:{poll_interval:17000}',
+        stats: 'mongo',
+        signaller: 'mongo'
       }
     },
     {
       factory: 'pl-mongo',
-      disable: false,
+      disable: true,
       config: {
         url: '{keuss.plmongo.url:mongodb://localhost:27017/keuss}',
-        pollInterval: 17000,
+        pollInterval: '#int:{poll_interval:17000}',
         stats: 'redis',
         signaller: 'redis'
       }
     },
     {
       factory: 'redis-list',
-      disable: false,
+      disable: true,
       config: {
         redis: {
           Redis: {
-            port: 6379,
-            host: 'localhost',
+            port: '#int:{keuss.redis.port:6379}',
+            host: '{keuss.redis.host:localhost}',
         //    family: 4,
         //    password: 'xxxx',
         //    db: 6
           }
         },
-        pollInterval: 17000,
+        pollInterval: '#int:{poll_interval:17000}',
         stats: 'redis',
         signaller: 'redis'
       }
     },
     {
       factory: 'redis-oq',
-      disable: false,
+      disable: true,
       config: {
         redis: {
           Redis: {
-            port: 6379,
-            host: 'localhost',
+            port: '#int:{keuss.redis.port:6379}',
+            host: '{keuss.redis.host:localhost}',
         //    family: 4,
         //    password: 'xxxx',
         //    db: 6
           }
         },
-        pollInterval: 17000,
+        pollInterval: '#int:{poll_interval:17000}',
         stats: 'redis',
         signaller: 'redis'
       }
