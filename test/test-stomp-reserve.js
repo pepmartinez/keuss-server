@@ -44,6 +44,19 @@ var config = {
         }
       }
     },
+    mongo_tape: {
+      factory: 'ps-mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test',
+        pollInterval: 17000,
+        stats: {
+          provider: new stats_redis(),
+        },
+        signaller: {
+          provider: new signal_redis_pubsub()
+        }
+      }
+    },
     redis_list: {
       factory: 'redis-list',
       config: {
@@ -105,7 +118,8 @@ function send_obj (scl, q, obj, cb) {
 _.forEach([
   'redis_oq',
   'mongo_simple',
-  'mongo_pipeline'
+  'mongo_pipeline',
+  'mongo_tape'
 ], function (type) {
   describe('STOMP reserve operations on queue type ' + type, function () {
     before(function (done) {

@@ -31,6 +31,19 @@ var config = {
         }
       }
     },
+    mongo_tape: {
+      factory: 'mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test',
+        pollInterval: 17000,
+        stats: {
+          provider: new stats_redis(),
+        },
+        signaller: {
+          provider: new signal_redis_pubsub()
+        }
+      }
+    },
     mongo_pipeline: {
       factory: 'pl-mongo',
       config: {
@@ -199,6 +212,7 @@ function commit_or_rollback_msg(type, q, id, commit, cb) {
 _.forEach([
   'redis_oq',
   'mongo_simple',
+  'mongo_tape',
   'mongo_pipeline'
 ], function (type) {
   describe('REST reserve-commit-rollback operations on queue type ' + type, function () {

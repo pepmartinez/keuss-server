@@ -3,7 +3,7 @@ var async = require('async');
 var request = require('supertest');
 var _ = require('lodash');
 
-var BaseApp = require('../app');
+var BaseApp = require ('../app');
 var Scope =   require ('../Scope');
 
 var theApp;
@@ -19,6 +19,19 @@ var config = {
   },
   namespaces: {
     mongo_simple: {
+      factory: 'mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test',
+        pollInterval: 17000,
+        stats: {
+          provider: new stats_redis(),
+        },
+        signaller: {
+          provider: new signal_redis_pubsub()
+        }
+      }
+    },
+    mongo_tape: {
       factory: 'mongo',
       config: {
         url: 'mongodb://localhost:27017/keuss-server-test',
@@ -124,7 +137,8 @@ function get_msg_timeout(type, q, timeout, cb) {
 _.forEach([
   'redis_oq',
   'mongo_simple',
-  'mongo_pipeline'
+  'mongo_pipeline',
+  'mongo_tape'
 ], function (type) {
   describe('REST scheduled operations on queue type ' + type, function () {
     before(function (done) {
