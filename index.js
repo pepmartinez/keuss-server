@@ -17,10 +17,12 @@ var defaults = {
 };
 
 cconf
-  .obj (defaults)
+  .obj  (defaults)
+  .env  ({prefix: 'KS_'})
+  .args ()
   .file (__dirname + '/etc/config.js',       {ignore_missing: true})
   .file (__dirname + '/etc/config-{env}.js', {ignore_missing: true})
-  .env ({prefix: 'KS_'})
+  .env  ({prefix: 'KS_'})
   .args ()
   .done (function (err, config) {
     if (err) {
@@ -37,7 +39,6 @@ cconf
     var Scope =   require ('./Scope');
 
     var stomp_server;
-    var app;
     var scope = new Scope ();
 
     async.series ([

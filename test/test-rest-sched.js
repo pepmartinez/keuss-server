@@ -17,7 +17,8 @@ var config = {
       'test': 'toast'
     }
   },
-  backends: [{
+  namespaces: {
+    mongo_simple: {
       factory: 'mongo',
       config: {
         url: 'mongodb://localhost:27017/keuss-server-test',
@@ -30,7 +31,7 @@ var config = {
         }
       }
     },
-    {
+    mongo_pipeline: {
       factory: 'pl-mongo',
       config: {
         url: 'mongodb://localhost:27017/keuss-server-test',
@@ -43,7 +44,7 @@ var config = {
         }
       }
     },
-    {
+    redis_list: {
       factory: 'redis-list',
       config: {
         pollInterval: 17000,
@@ -55,7 +56,7 @@ var config = {
         }
       }
     },
-    {
+    redis_oq: {
       factory: 'redis-oq',
       config: {
         pollInterval: 17000,
@@ -67,7 +68,7 @@ var config = {
         }
       }
     }
-  ]
+  }
 };
 
 
@@ -121,9 +122,9 @@ function get_msg_timeout(type, q, timeout, cb) {
 
 
 _.forEach([
-  'redis:oq',
-  'mongo:simple',
-  'mongo:pipeline'
+  'redis_oq',
+  'mongo_simple',
+  'mongo_pipeline'
 ], function (type) {
   describe('REST scheduled operations on queue type ' + type, function () {
     before(function (done) {

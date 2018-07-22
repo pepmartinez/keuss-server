@@ -13,13 +13,13 @@ class Scope {
   constructor () {
     this._stats_providers = {};
     this._signal_providers = {};
-    this._types = {};
+    this._q_envs = {};
   }
 
 
   //////////////////////////////
   type (t) {
-    return this._types[t];
+    return this._q_envs[t];
   }
   
   
@@ -51,35 +51,37 @@ class Scope {
   _init_backends (config, cb) {
     var tasks = [];
     
-    _.forEach (config.backends, (backend) => {
-      if (backend.disable) {
-        logger.info ('queue backend [%s] disabled, not loading', backend.factory);
+    _.forEach (config.namespaces, (namespace, namespace_name) => {
+
+      if (namespace.disable) {
+        logger.info ('queue namespace [%s] disabled, not loading', namespace_name);
         return;
       }
+
     
       tasks.push (cb => {
-        var bk_module = require ('keuss/backends/' + backend.factory);
+        var bk_module = require ('keuss/backends/' + namespace.factory);
 
-        var stats_provider = this._stats_providers [backend.config.stats || ''];
+        var stats_provider = this._stats_providers [namespace.config.stats || ''];
 
         if (stats_provider) {
-          backend.config.stats = {provider: stats_provider};
+          namespace.config.stats = {provider: stats_provider};
         }
 
-        var signal_provider = this._signal_providers [backend.config.signaller || ''];
+        var signal_provider = this._signal_providers [namespace.config.signaller || ''];
 
         if (signal_provider) {
-          backend.config.signaller = {provider: signal_provider};
+          namespace.config.signaller = {provider: signal_provider};
         }
 
-        bk_module (backend.config, (err, factory) => {
+        bk_module (namespace.config, (err, factory) => {
           if (err) {
-            logger.info ('error initializing queue backend [%s]: %j', factory.type (), err);
+            logger.info ('error initializing queue namespace [%s]: %j', namespace_name, err);
             return cb (err);
           }
 
-          this._types [factory.type ()] = {factory: factory, q_repo: new Map ()};
-          logger.info ('loaded queue backend [%s] (keuss/backends/%s)', factory.type (), backend.factory);
+          this._q_envs [namespace_name] = {factory: factory, q_repo: new Map ()};
+          logger.info ('loaded queue namespace [%s] (keuss/backends/%s)', namespace_name, namespace.factory);
           cb ();
         });
       });
@@ -107,7 +109,7 @@ class Scope {
     var tasks = [];
     var self = this;
     
-    _.forEach (this._types, function (type_obj, type_name) {
+    _.forEach (this._q_envs, function (type_obj, type_name) {
       tasks.push (function (cb) {
         var bk = type_obj.factory;
         
@@ -134,7 +136,7 @@ class Scope {
   queues () {
     var ret = {};
     
-    _.forEach (this._types, function (type_obj, type_name) {
+    _.forEach (this._q_envs, function (type_obj, type_name) {
       type_obj.q_repo.forEach (function (q_obj, q_name) {
         ret [q_name + '@' + type_name] = q_obj;
       });
