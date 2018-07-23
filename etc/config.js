@@ -18,7 +18,7 @@ var config = {
         Redis: {
           port: '#int:{keuss.redis.port:6379}',
           host: '{keuss.redis.host:localhost}',
-          db: 5,
+      //    db: 5,
       //    family: 4,
       //    password: 'xxxx',
         }
@@ -67,7 +67,7 @@ var config = {
       config: {
         url: '{mongo.url:mongodb://localhost:27017/keuss}',
         pollInterval: '#int:{poll_interval:17000}',
-        stats: 'mongo',
+        stats: 'redis',
         signaller: 'mongo'
       }
     },
