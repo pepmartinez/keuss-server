@@ -1,16 +1,14 @@
 'use strict';
 
-var async =  require ('async');
 var net =    require ('net');
 var uuid =   require ('uuid');
 var util =   require ('util');
 var _ =      require ('lodash');
 var SF =     require ('stomp-frames');
+var Log =    require ('winston-log-space');
 
-var Scope =  require ('./Scope');
-var Logger = require ('./Logger');
 
-var logger = Logger.logger ('stomp');
+var logger = Log.logger ('stomp');
 
 
 

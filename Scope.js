@@ -3,10 +3,9 @@
 var async = require ('async');
 var _ =     require ('lodash');
 var util =  require ('util');
+var Log =   require ('winston-log-space');
 
-var Logger = require ('./Logger');
-
-var logger = Logger.logger ('scope');
+var logger = Log.logger ('scope');
 
 class Scope {
   //////////////////////////////

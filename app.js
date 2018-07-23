@@ -4,15 +4,14 @@ var express =    require ('express');
 var bodyParser = require ('body-parser');
 var path =       require ('path');
 var basicAuth =  require ('express-basic-auth');
+var Log =        require ('winston-log-space');
 
 var routes_q =   require ('./routes/q');
-
-var Logger = require ('./Logger');
-var logger = Logger.logger ('app');
 
 
 function app (config, scope, extra_init, cb) {
   var app = express ();
+  var logger = Log.logger ('app');
   
   app.set ('views', path.join (__dirname, 'views'));
   app.set ('view engine', 'jade');

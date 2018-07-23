@@ -1,8 +1,6 @@
 * General
-  + better logger
 * REST
 * STOMP
-  + add tests, tests, tests        (minimally done)
   + add auth?
   + add http introspection         (minimally done)
   + profile cpu/mem
