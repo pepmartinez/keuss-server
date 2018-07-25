@@ -1,6 +1,6 @@
 {
   "name": "keuss-server",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "keywords": [
     "queue",
     "job",
@@ -33,7 +33,6 @@
     "async": "2.6.0",
     "lodash": "4.17.5",
     "express": "4.16.2",
-    "winston": "2.4.0",
     "jade": "1.11.0",
     "body-parser": "1.18.2",
     "uuid": "3.2.1",

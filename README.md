@@ -6,16 +6,17 @@ Keuss-server provides STOMP and REST-like interfaces atop [keuss](https://github
 ## Install & run
 Easiest way is to `npm install keuss-server`; then, edit the config.js file at will and run `node index.js`. 
 
-Keuss-server dumps a not-very-verbose log to stdout; setting env var `KEUSS_SERVER_SILENT=1` will remove the logging altogether
-
 keuss-server comes with mocha tests, runnable with the usual `npm test`. It expects a local running redis server, and a local running mongodb server (just as they are once installed in ubuntu, for example)
+
+## Logging
+Keuss-server uses [winston-log-space](https://github.com/pepmartinez/winston-log-space) for logging, and by default it logs to stdout only, on a `info` level. See `winston-log-space` for ow to configure and tailor logging
 
 ## Configuration 
 Keuss-server's core functionality is provided by a set of keuss client objects, plus a REST iterface (express) and a STOMP layer on top; as such, it works largely as if it were any other keuss app
 
-This concerns more specifically to the stats and signaller providers used: if the defaut ones are used (backed by memory and therefore bound to a single process) the keuss-server will work pretty much fine, but will be totally self-contain: the queues could be used externally, but only in a degraded state where the stats are not shared and no signalling is present (see keuss' docs for more info)
+This concerns more specifically to the stats and signaller providers used: if the defaut ones are used (backed by memory and therefore bound to a single process) the keuss-server will work pretty much fine, but will be totally self-contain: the queues could not be correctly seen externally, but only in a degraded state where the stats are not shared and no signalling is present (see keuss' docs for more info)
 
-It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire seeral keuss-server instances (or use external keuss clients) that would work as a single cluster. 
+It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire several keuss-server instances (or use external keuss clients) that would work as a single cluster. 
 
 The config is composed using [cascade-config](https://github.com/pepmartinez/cascade-config) with the following loaders:
 * defaults: 
@@ -30,7 +31,7 @@ The config is composed using [cascade-config](https://github.com/pepmartinez/cas
       keepalive_interval: 2000,
       read_timeout: 12000
     },
-    backends: []
+    namespaces: []
   }
   ```
 * file at `__dirname + '/etc/config.js`, optional
@@ -45,14 +46,20 @@ For more information about how the config is specified and composed please see [
 *  `stomp.port`: port to listen to for STOMP clients, defaults to 61613
 *  `stomp.keepalive_interval`: period in millisecs for the timeout checks, defaults to 2000. The stomp stack would check all active connections every so millisecs to see if a keepalive is needed, or a connection is to be closed
 *  `stomp.read_timeout`: millisecs of inactivity that would cause a connection to be deemed dead, when no session is yet opened or when the client states it will send no keepaives. Defaults to 12000
-* `backends`: the queue backends to connect to; they define instances of keuss queue factories, and follow this schema:
-  * `factory`: a name for the factory
+* `stats`: declare keuss stats factories to be used later on queue namespaces. Each entry would define a specific keuss stats factory with a specific config, that can be then referred to by name
+* * `factory`: keuss stats factory name to be used. Can be `mem`, `redis` or `mongo`
+* * `config`: config object to be passed to create the factory
+* `signallers`: declare keuss signaller factories to be used later on queue namespaces. Each entry would define a specific keuss signaller factory with a specific config, that can be then referred to by name
+* * `factory`: keuss signaller factory name to be used. Can be `redis-pubsub` or `mongo-capped`
+* * `config`: config object to be passed to create the factory
+* `namespaces`: the queue namespaces to connect to; they define instances of keuss queue factories, and follow this schema:
+  * `factory`: the keuss queue factory to use
   * `disable`: whether to disable it, defaults to false
-  * `config`: the keuss config for the queue factory
+  * `config`: the keuss config for the queue factory. Tehre is a difference with plain keuss, however: the `config.stats` and `config.signaller` should be strings, referring to factories declared inside `stats` and  `signallers`. Alternatively, the keuss way (passing a factory object) is also allowed
 
-keuss-server allows all backend types offered by keuss v1.3.7: redis-list, redis-ordered, mongo-simple and mongo-pipeline. However, the pipeline-specific operations are not yet supported by keuss-server
+keuss-server allows all backend types offered by keuss v1.4.0: redis-list, redis-ordered, mongo-simple, mongo-pipeline and mongo-persistent. However, the pipeline-specific operations are not yet supported by keuss-server
 
-Keuss-server comes with a sample config.js with queues of the 4 types supported by keuss, using local redis & mongodb servers
+Keuss-server comes with a sample config.js with namespaces and queues of the 5 types supported by keuss, plus all supported stats and signallers (using local redis & mongodb servers)
 
 ## Web Console
 If you're running keuss-server in localhost, and the http.port is set to 3456, open a browser at `http://localhost:3456` and you will get a simple web console showing a table with all the queues found and information about them
@@ -60,27 +67,27 @@ If you're running keuss-server in localhost, and the http.port is set to 3456, o
 ## REST API
 All the REST operations on all queues are locted under `/q` path. Also, all operations are protected with HTTP Basic Auth (see *configuration* above)
 
-### List backends: `GET /q`
-Lists all queues on all backends. Admits the following query parameters:
+### List namespaces: `GET /q`
+Lists all queues on all namespaces. Admits the following query parameters:
 * `array=1`: lists the queues in a format resembing an array (this is the one used internally by the web console)
-* `tree=1`: lists the queue in a format resembling a tree, or a hierarchy of backends
-* `reload=1`: force a reload of the queue information on all backends before listing
+* `tree=1`: lists the queue in a format resembling a tree, or a hierarchy of namespaces
+* `reload=1`: force a reload of the queue information on all namespaces before listing
 
-### List queues on backend: `GET /q/:backend`
-Lists all queues on the specified backend. *backend* corresponds to the *name* specified in the configurationAdmits the following query parameters:
+### List queues on namespace: `GET /q/:namespace`
+Lists all queues on the specified namespace. *namespace* corresponds to the *name* specified in the configurationAdmits the following query parameters:
 * `array=1`: lists the queues in a format resembing an array (this is the one used internally by the web console)
-* `tree=1`: lists the queue in a format resembling a tree, or a hierarchy of backends
+* `tree=1`: lists the queue in a format resembling a tree, or a hierarchy of namespaces
 
-### Status of queue: `GET /q/:backend/:queue/status`
+### Status of queue: `GET /q/:namespace/:queue/status`
 Get status of a single queue
 
-### Insert in queue: `PUT /q/:backend/:queue` or `POST /q/:backend/:queue`
+### Insert in queue: `PUT /q/:namespace/:queue` or `POST /q/:namespace/:queue`
 Inserts an object into a queue. All parameters in the querystring are passed to keuss' push operation as *options*:
 * `mature`: unix timestamp where the element would be elligible for extraction. It is guaranteed that the element won't be extracted before this time
 * `delay`: delay in seconds to calculate the mature timestamp, if mature is not provided. For example, a delay=120 guarantees the element won't be extracted until 120 secs have elapsed at least
 * `tries`: value to initialize the retry counter, defaults to 0 (still no retries).
 
-### Get/reserve from queue: `GET /q/:backend/:queue`
+### Get/reserve from queue: `GET /q/:namespace/:queue`
 Attempts a pop or a reserve on a queue. If there is no elligible elements the call would block indefinitely, or until *to* milliseconds elapse, or until a cancel operation is called
 Admits the following query parameters:
 * `to`: timeout in millsecs if the operation needs to block. Blocks indefinitely by default
