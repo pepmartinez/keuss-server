@@ -257,8 +257,8 @@ _.forEach([
     it('does pop + delay + cancel + push + pop ok', function (done) {
       async.series([
         function (cb) {
-          get_msg_timeout_id(type, 'q1', 3000, 'the-first-consumer', cb);
-          cb();
+          get_msg_timeout_id(type, 'q1', 3000, 'the-first-consumer', function () {});
+          cb ();
         },
         function (cb) {
           setTimeout(cb, 1000)

@@ -73,7 +73,10 @@ class Scope {
           namespace.config.signaller = {provider: signal_provider};
         }
 
-        bk_module (namespace.config, (err, factory) => {
+        var bk_opts= {name: namespace_name};
+        _.merge (bk_opts, namespace.config);
+
+        bk_module (bk_opts, (err, factory) => {
           if (err) {
             logger.info ('error initializing queue namespace [%s]: %j', namespace_name, err);
             return cb (err);
@@ -135,9 +138,9 @@ class Scope {
   queues () {
     var ret = {};
     
-    _.forEach (this._q_envs, function (type_obj, type_name) {
-      type_obj.q_repo.forEach (function (q_obj, q_name) {
-        ret [q_name + '@' + type_name] = q_obj;
+    _.forEach (this._q_envs, function (qenv, ns) {
+      qenv.q_repo.forEach (function (q_obj, q_name) {
+        ret [q_name + '@' + ns] = q_obj;
       });
     });
     

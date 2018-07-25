@@ -121,6 +121,11 @@ _.forEach([
   'mongo_pipeline',
   'mongo_tape'
 ], function (type) {
+  before (function (done) {
+    var Log = require ('winston-log-space');
+    Log.init ({level: {default: 'verbose'}}, done);
+  });
+
   describe('STOMP reserve operations on queue type ' + type, function () {
     before(function (done) {
       var scope = new Scope ();

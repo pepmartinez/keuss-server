@@ -46,7 +46,7 @@ var config = {
           host: '{keuss.redis.host:localhost}',
       //    family: 4,
       //    password: 'xxxx',
-          db: 6
+      //    db: 6
         }
       }
     },
@@ -65,9 +65,9 @@ var config = {
       factory: 'mongo',
       disable: false,
       config: {
-        url: '{mongo.url:mongodb://localhost:27017/keuss}',
+        url: '{mongo.url:mongodb://localhost:27017/keuss_local_mongo}',
         pollInterval: '#int:{poll_interval:17000}',
-        stats: 'redis',
+        stats: 'mongo',
         signaller: 'mongo'
       }
     },
@@ -105,8 +105,8 @@ var config = {
           }
         },
         pollInterval: '#int:{poll_interval:17000}',
-        stats: 'redis',
-        signaller: 'redis'
+        stats: 'mongo',
+        signaller: 'mongo'
       }
     },
     local_redisoq: {
@@ -123,8 +123,8 @@ var config = {
           }
         },
         pollInterval: '#int:{poll_interval:17000}',
-        stats: 'redis',
-        signaller: 'redis'
+        stats: 'mongo',
+        signaller: 'mongo'
       }
     }
   }

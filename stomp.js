@@ -206,7 +206,7 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   end (cb) {
-    this._server.close (function () {
+    this._server.close (() => {
       // end all sessions
       _.forEach (this._sessions, function (v, k) {
         v.s = 'ended';
@@ -400,13 +400,18 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   _get_queue (destination) {
-    // dest must be /type/queue
+    // dest must be /ns/queue
     if (!destination.match (/^\/[a-zA-Z0-9\\-_:]+\/[a-zA-Z0-9\\-_]+$/)) {
-      return 'destination must match /<type>/<queue>';
+      return `destination ${destination} must match /<namespace>/<queue>`;
     }
 
     var arr = destination.split('/');
     var type = this._scope.type (arr[1]);
+
+    if (!type) {
+      return `unknown namespace ${type} on destination queue ${destination}`;
+    }
+
     var qname = arr[2];
 
     if (!type.q_repo.has(qname)) {
