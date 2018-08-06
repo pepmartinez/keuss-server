@@ -8,8 +8,11 @@ var Scope =   require ('../Scope');
 
 var stomp_server;
 
-var stats_redis = require('keuss/stats/redis');
-var signal_redis_pubsub = require('keuss/signal/redis-pubsub');
+var stats_redis =  require('keuss/stats/redis');
+var signal_redis = require('keuss/signal/redis-pubsub');
+
+var stats_mongo =  require('keuss/stats/mongo');
+var signal_mongo = require('keuss/signal/mongo-capped');
 
 var config = {
   http: {
@@ -24,10 +27,10 @@ var config = {
         url: 'mongodb://localhost:27017/keuss-server-test',
         pollInterval: 17000,
         stats: {
-          provider: new stats_redis(),
+          provider: stats_mongo,
         },
         signaller: {
-          provider: new signal_redis_pubsub()
+          provider: signal_mongo
         }
       }
     },
@@ -37,10 +40,10 @@ var config = {
         url: 'mongodb://localhost:27017/keuss-server-test',
         pollInterval: 17000,
         stats: {
-          provider: new stats_redis(),
+          provider: stats_mongo,
         },
         signaller: {
-          provider: new signal_redis_pubsub()
+          provider: signal_mongo
         }
       }
     },
@@ -50,10 +53,10 @@ var config = {
         url: 'mongodb://localhost:27017/keuss-server-test',
         pollInterval: 17000,
         stats: {
-          provider: new stats_redis(),
+          provider: stats_mongo,
         },
         signaller: {
-          provider: new signal_redis_pubsub()
+          provider: signal_mongo
         }
       }
     },
@@ -62,10 +65,10 @@ var config = {
       config: {
         pollInterval: 17000,
         stats: {
-          provider: new stats_redis(),
+          provider: stats_redis,
         },
         signaller: {
-          provider: new signal_redis_pubsub()
+          provider: signal_redis
         }
       }
     },
@@ -74,10 +77,10 @@ var config = {
       config: {
         pollInterval: 17000,
         stats: {
-          provider: new stats_redis(),
+          provider: stats_redis,
         },
         signaller: {
-          provider: new signal_redis_pubsub()
+          provider: signal_redis
         }
       }
     }

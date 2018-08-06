@@ -1,6 +1,6 @@
 {
   "name": "keuss-server",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "keywords": [
     "queue",
     "job",
@@ -28,7 +28,7 @@
     "keuss": "./index.js"
   },
   "dependencies": {
-    "keuss": "1.4.0",
+    "keuss": "1.4.3",
     "stomp-frames": "1.0.1",
     "async": "2.6.0",
     "lodash": "4.17.5",

@@ -26,7 +26,12 @@ class Scope {
   _init_stats_providers (config, cb) {
     _.forEach (config.stats, (v, k) => {
       var modul = require('keuss/stats/' + v.factory);
-      this._stats_providers[k] = new modul (v.config);
+
+      this._stats_providers[k] = {
+        m: modul,
+        cfg: v.config
+      };
+
       logger.info ('loaded stats provider [%s] (keuss/stats/%s)', k, v.factory);
     });
 
@@ -38,7 +43,12 @@ class Scope {
   _init_signal_providers (config, cb) {
     _.forEach (config.signallers, (v, k) => {
       var modul = require('keuss/signal/' + v.factory);
-      this._signal_providers[k] = new modul (v.config);
+
+      this._signal_providers[k] = {
+        m: modul,
+        cfg: v.config
+      };
+
       logger.info ('loaded signal provider [%s] (keuss/signal/%s)', k, v.factory);
     });
 
@@ -64,13 +74,19 @@ class Scope {
         var stats_provider = this._stats_providers [namespace.config.stats || ''];
 
         if (stats_provider) {
-          namespace.config.stats = {provider: stats_provider};
+          namespace.config.stats = {
+            provider: stats_provider.m,
+            opts:     stats_provider.cfg
+          };
         }
 
         var signal_provider = this._signal_providers [namespace.config.signaller || ''];
 
         if (signal_provider) {
-          namespace.config.signaller = {provider: signal_provider};
+          namespace.config.signaller = {
+            provider: signal_provider.m,
+            opts:     signal_provider.cfg
+          };
         }
 
         var bk_opts= {name: namespace_name};
