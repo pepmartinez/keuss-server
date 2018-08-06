@@ -11,8 +11,8 @@ var config = {
     mongo: {
       factory: 'mongo',
       config: {
-        url:  '{mongo.url:mongodb://localhost/keuss_stats}',
-        coll: '{mongo.coll:keuss_stats}'
+        url:  '{stats.mongo.url:mongodb://localhost/keuss_stats}',
+        coll: '{stats.mongo.coll:keuss_stats}'
       }
     }
   },
@@ -21,9 +21,9 @@ var config = {
     mongo: {
       factory: 'mongo-capped',
       config: {
-        mongo_url: '{mongo.url:mongodb://localhost/keuss_signal}',
+        mongo_url: '{signal.mongo.url:mongodb://localhost/keuss_signal}',
         mongo_opts: {},
-        channel: '{mongo.channel:default}',
+        channel: '{signal.mongo.channel:default}',
       }
     }
   },
@@ -33,7 +33,7 @@ var config = {
       factory: 'mongo',
       disable: false,
       config: {
-        url: '{mongo.url:mongodb://localhost/ns1_data}',
+        url: '{data.mongo.url:mongodb://localhost/ns1_data}',
         stats: 'mongo',
         signaller: 'mongo'
       }
@@ -44,7 +44,7 @@ var config = {
       config: {
         redis: {
           Redis: {
-            host: '{redis.host:localhost}',
+            host: '{data.redis.host:localhost}',
           }
         },
         stats: 'mongo',
@@ -57,7 +57,7 @@ var config = {
       config: {
         redis: {
           Redis: {
-            host: '{redis.host:localhost}',
+            host: '{data.redis.host:localhost}',
           }
         },
         stats: 'mongo',
