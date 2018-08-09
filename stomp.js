@@ -406,19 +406,19 @@ class STOMP {
     }
 
     var arr = destination.split('/');
-    var type = this._scope.type (arr[1]);
+    var ns = this._scope.namespace (arr[1]);
 
-    if (!type) {
-      return `unknown namespace ${type} on destination queue ${destination}`;
+    if (!ns) {
+      return `unknown namespace ${ns} on destination queue ${destination}`;
     }
 
     var qname = arr[2];
 
-    if (!type.q_repo.has(qname)) {
-      type.q_repo.set(qname, type.factory.queue(qname, {}));
+    if (!ns.q_repo.has(qname)) {
+      ns.q_repo.set(qname, ns.factory.queue(qname, {}));
     }
 
-    var q = type.q_repo.get(qname);
+    var q = ns.q_repo.get(qname);
     return q;
   }
 

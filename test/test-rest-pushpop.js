@@ -88,9 +88,9 @@ var config = {
 };
 
 
-function put_msg(type, q, msg, cb) {
+function put_msg(namespace, q, msg, cb) {
   request(theApp)
-    .put('/q/' + type + '/' + q)
+    .put('/q/' + namespace + '/' + q)
     .send(msg)
     .auth('test', 'toast')
     .expect(200)
@@ -99,9 +99,9 @@ function put_msg(type, q, msg, cb) {
     });
 }
 
-function get_msg(type, q, cb) {
+function get_msg(namespace, q, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -109,9 +109,9 @@ function get_msg(type, q, cb) {
     });
 }
 
-function get_msg_timeout(type, q, timeout, cb) {
+function get_msg_timeout(namespace, q, timeout, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .query({
       to: timeout
     })
@@ -122,9 +122,9 @@ function get_msg_timeout(type, q, timeout, cb) {
     });
 }
 
-function get_msg_timeout_id(type, q, timeout, id, cb) {
+function get_msg_timeout_id(namespace, q, timeout, id, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .query({
       to: timeout,
       tid: id
@@ -136,9 +136,9 @@ function get_msg_timeout_id(type, q, timeout, id, cb) {
     });
 }
 
-function cancel_pop(type, q, id, cb) {
+function cancel_pop(namespace, q, id, cb) {
   request(theApp)
-    .del('/q/' + type + '/' + q + '/consumer/' + id)
+    .del('/q/' + namespace + '/' + q + '/consumer/' + id)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -146,9 +146,9 @@ function cancel_pop(type, q, id, cb) {
     });
 }
 
-function get_consumers(type, q, cb) {
+function get_consumers(namespace, q, cb) {
   request(theApp)
-    .get('/q/' + type + '/q1/consumers')
+    .get('/q/' + namespace + '/q1/consumers')
     .auth('test', 'toast')
     .end(function (err, res) {
       cb(err, res && res.body);
@@ -162,8 +162,8 @@ _.forEach([
   'mongo_simple',
   'mongo_tape',
   'mongo_pipeline'
-], function (type) { 
-  describe('REST push/pop operations on queue type ' + type, function () {
+], function (namespace) { 
+  describe('REST push/pop operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
@@ -190,10 +190,10 @@ _.forEach([
       };
       async.series([
         function (cb) {
-          put_msg(type, 'q1', msg, cb)
+          put_msg(namespace, 'q1', msg, cb)
         },
         function (cb) {
-          get_msg(type, 'q1', cb)
+          get_msg(namespace, 'q1', cb)
         },
       ], function (err, allres) {
         allres[1].should.match({
@@ -209,7 +209,7 @@ _.forEach([
       var t0 = new Date().getTime();
       async.series([
         function (cb) {
-          get_msg_timeout(type, 'q1', 2000, cb)
+          get_msg_timeout(namespace, 'q1', 2000, cb)
         }
       ], function (err, allres) {
         allres[0].should.match({
@@ -236,11 +236,11 @@ _.forEach([
       var t0 = new Date().getTime();
       async.parallel([
         function (cb) {
-          get_msg(type, 'q1', cb);
+          get_msg(namespace, 'q1', cb);
         },
         function (cb) {
           setTimeout(function () {
-            put_msg(type, 'q1', msg, cb);
+            put_msg(namespace, 'q1', msg, cb);
           }, 1000);
         }
       ], function (err, allres) {
@@ -260,20 +260,20 @@ _.forEach([
     it('does pop + delay + cancel + push + pop ok', function (done) {
       async.series([
         function (cb) {
-          get_msg_timeout_id(type, 'q1', 3000, 'the-first-consumer', function () {});
+          get_msg_timeout_id(namespace, 'q1', 3000, 'the-first-consumer', function () {});
           cb ();
         },
         function (cb) {
           setTimeout(cb, 1000)
         },
         function (cb) {
-          get_consumers(type, 'q1', cb)
+          get_consumers(namespace, 'q1', cb)
         },
         function (cb) {
-          cancel_pop(type, 'q1', 'the-first-consumer', cb)
+          cancel_pop(namespace, 'q1', 'the-first-consumer', cb)
         },
         function (cb) {
-          get_consumers(type, 'q1', cb)
+          get_consumers(namespace, 'q1', cb)
         },
         function (cb) {
           setTimeout(cb, 3000)

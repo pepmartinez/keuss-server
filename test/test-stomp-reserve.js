@@ -123,13 +123,13 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape'
-], function (type) {
+], function (namespace) {
   before (function (done) {
     var Log = require ('winston-log-space');
     Log.init ({level: {default: 'verbose'}}, done);
   });
 
-  describe('STOMP reserve operations on queue type ' + type, function () {
+  describe('STOMP reserve operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
@@ -146,7 +146,7 @@ _.forEach([
     });
     
     it('does push/reserve/commit ok', function (done) {
-      var q = '/' + type + '/stomp_test_2';
+      var q = '/' + namespace + '/stomp_test_2';
       var msg = {
         a: 'aaa',
         b: 666,

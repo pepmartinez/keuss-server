@@ -124,8 +124,8 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape'
-], function (type) {
-  describe('STOMP push/pop operations on queue type ' + type, function () {
+], function (namespace) {
+  describe('STOMP push/pop operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
@@ -142,7 +142,7 @@ _.forEach([
     });
 
     it('does push/pop ok, ack to auto', function (done) {
-      var q = '/' + type + '/stomp_test_1';
+      var q = '/' + namespace + '/stomp_test_1';
       var msg = {
         a: 'aaa',
         b: 666,

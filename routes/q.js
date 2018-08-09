@@ -20,17 +20,17 @@ function _list_queues_tree(scope, req, res) {
 
   async.parallel(tasks, function (err, r) {
     _.forEach(r, function (q, qname) {
-      if (!hier[q.type]) {
-        hier[q.type] = {
-          title: q.type,
-          key: q.type,
+      if (!hier[q.namespace]) {
+        hier[q.namespace] = {
+          title: q.namespace,
+          key: q.namespace,
           folder: true,
           expanded: true,
           children: []
         };
       }
 
-      var ch = hier[q.type].children;
+      var ch = hier[q.namespace].children;
       ch.push({
         title: qname,
         key: qname,
@@ -81,19 +81,15 @@ function _list_queues_array(scope, req, res) {
 
 
 //////////////////////////////////////////////////////////////////////////////////////
-function _list_queues_plain(scope, req, res) {
-  var queues = scope.queues();
-  var tasks = {};
+function _list_namespaces(scope, req, res) {
+  var namespaces = scope.namespaces();
+  var ret = [];
 
-  _.forEach(queues, function (q, qname) {
-    tasks[qname] = function (cb) {
-      q.status(cb)
-    }
+  _.forEach (namespaces, function (v, k) {
+    ret.push (k);
   });
-
-  async.parallel(tasks, function (err, r) {
-    res.send(r);
-  });
+    
+  res.send (ret);
 }
 
 
@@ -104,7 +100,7 @@ function _list_queues(scope, req, res) {
   } else if (req.query.array) {
     _list_queues_array(scope, req, res);
   } else {
-    _list_queues_plain(scope, req, res);
+    _list_namespaces(scope, req, res);
   }
 }
 
@@ -131,10 +127,10 @@ function get_router(config, scope) {
 
 
   //////////////////////////////////////////////////////////////////////////////////////
-  function _get_queues_of_type(req, res) {
+  function _get_queues_of_namespace(req, res) {
     var tasks = {};
 
-    for (let entry of req.__type.q_repo) {
+    for (let entry of req.__namespace.q_repo) {
       tasks[entry[0]] = function (cb) {
         entry[1].status(cb)
       };
@@ -282,40 +278,40 @@ function get_router(config, scope) {
   var router = express.Router();
 
   
-  router.param('type', function (req, res, next, type) {
-    var __type = scope.type(type);
-    if (!__type) {
-      res.status(404).send('no such queue type [' + type + ']');
+  router.param('namespace', function (req, res, next, namespace) {
+    var __namespace = scope.namespace(namespace);
+    if (!__namespace) {
+      res.status(404).send('no such queue namespace [' + namespace + ']');
     } else {
-      req.__type = __type;
+      req.__namespace = __namespace;
       next();
     }
   });
 
   router.param('q', function (req, res, next, q) {
-    var type = req.__type;
+    var namespace = req.__namespace;
 
-    if (!type.q_repo.has(q)) {
-      type.q_repo.set(q, type.factory.queue(q, {}));
+    if (!namespace.q_repo.has(q)) {
+      namespace.q_repo.set(q, namespace.factory.queue(q, {}));
     }
 
-    req.__q = type.q_repo.get(q);
+    req.__q = namespace.q_repo.get(q);
     next();
   });
 
   router.get('/', _get_queues);
-  router.get('/:type', _get_queues_of_type);
-  router.get('/:type/:q/status', _get_queue_status);
-  router.get('/:type/:q/consumers', _get_queue_consumers);
+  router.get('/:namespace', _get_queues_of_namespace);
+  router.get('/:namespace/:q/status', _get_queue_status);
+  router.get('/:namespace/:q/consumers', _get_queue_consumers);
 
-  router.put('/:type/:q', _push_in_queue);
-  router.post('/:type/:q', _push_in_queue);
-  router.get('/:type/:q', _pop_from_queue);
+  router.put('/:namespace/:q', _push_in_queue);
+  router.post('/:namespace/:q', _push_in_queue);
+  router.get('/:namespace/:q', _pop_from_queue);
 
-  router.delete('/:type/:q/consumer/:tid', _cancel_pop);
+  router.delete('/:namespace/:q/consumer/:tid', _cancel_pop);
 
-  router.patch('/:type/:q/commit/:id', _commit);
-  router.patch('/:type/:q/rollback/:id', _rollback);
+  router.patch('/:namespace/:q/commit/:id', _commit);
+  router.patch('/:namespace/:q/rollback/:id', _rollback);
 
   return router;
 }

@@ -88,9 +88,9 @@ var config = {
 };
 
 
-function put_msg(type, q, msg, cb) {
+function put_msg(namespace, q, msg, cb) {
   request(theApp)
-    .put('/q/' + type + '/' + q)
+    .put('/q/' + namespace + '/' + q)
     .send(msg)
     .auth('test', 'toast')
     .expect(200)
@@ -99,9 +99,9 @@ function put_msg(type, q, msg, cb) {
     });
 }
 
-function put_msg_delayed(type, q, msg, delay, cb) {
+function put_msg_delayed(namespace, q, msg, delay, cb) {
   request(theApp)
-    .put('/q/' + type + '/' + q)
+    .put('/q/' + namespace + '/' + q)
     .query({
       delay: delay
     })
@@ -113,9 +113,9 @@ function put_msg_delayed(type, q, msg, delay, cb) {
     });
 }
 
-function get_msg(type, q, cb) {
+function get_msg(namespace, q, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -123,9 +123,9 @@ function get_msg(type, q, cb) {
     });
 }
 
-function reserve_msg(type, q, cb) {
+function reserve_msg(namespace, q, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .query ({reserve: 1})
     .expect(200)
     .auth('test', 'toast')
@@ -134,9 +134,9 @@ function reserve_msg(type, q, cb) {
     });
 }
 
-function get_msg_timeout(type, q, timeout, cb) {
+function get_msg_timeout(namespace, q, timeout, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .query({
       to: timeout
     })
@@ -147,9 +147,9 @@ function get_msg_timeout(type, q, timeout, cb) {
     });
 }
 
-function reserve_msg_timeout(type, q, timeout, cb) {
+function reserve_msg_timeout(namespace, q, timeout, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .query({
       to: timeout,
       reserve: 1
@@ -161,9 +161,9 @@ function reserve_msg_timeout(type, q, timeout, cb) {
     });
 }
 
-function commit_msg(type, q, id, cb) {
+function commit_msg(namespace, q, id, cb) {
   request(theApp)
-    .patch('/q/' + type + '/' + q + '/commit/' + id)
+    .patch('/q/' + namespace + '/' + q + '/commit/' + id)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -171,9 +171,9 @@ function commit_msg(type, q, id, cb) {
     });
 }
 
-function rollback_msg(type, q, id, cb) {
+function rollback_msg(namespace, q, id, cb) {
   request(theApp)
-    .patch('/q/' + type + '/' + q + '/rollback/' + id)
+    .patch('/q/' + namespace + '/' + q + '/rollback/' + id)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -181,18 +181,18 @@ function rollback_msg(type, q, id, cb) {
     });
 }
 
-function rollback_msg_unknown(type, q, id, cb) {
+function rollback_msg_unknown(namespace, q, id, cb) {
   request(theApp)
-    .patch('/q/' + type + '/' + q + '/rollback/' + id)
+    .patch('/q/' + namespace + '/' + q + '/rollback/' + id)
     .auth('test', 'toast')
     .end(function (err, res) {
       cb(err, res);
     });
 }
 
-function rollback_msg_delay(type, q, id, delay, cb) {
+function rollback_msg_delay(namespace, q, id, delay, cb) {
   request(theApp)
-    .patch('/q/' + type + '/' + q + '/rollback/' + id)
+    .patch('/q/' + namespace + '/' + q + '/rollback/' + id)
     .query ({delay: delay})
     .expect(200)
     .auth('test', 'toast')
@@ -201,9 +201,9 @@ function rollback_msg_delay(type, q, id, delay, cb) {
     });
 }
 
-function commit_or_rollback_msg(type, q, id, commit, cb) {
+function commit_or_rollback_msg(namespace, q, id, commit, cb) {
   request(theApp)
-    .patch('/q/' + type + '/' + q + '/' + (commit ? 'commit' : 'rollback') + '/' + id)
+    .patch('/q/' + namespace + '/' + q + '/' + (commit ? 'commit' : 'rollback') + '/' + id)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -217,8 +217,8 @@ _.forEach([
   'mongo_simple',
   'mongo_tape',
   'mongo_pipeline'
-], function (type) {
-  describe('REST reserve-commit-rollback operations on queue type ' + type, function () {
+], function (namespace) {
+  describe('REST reserve-commit-rollback operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
@@ -247,15 +247,15 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg(type, 'q1', msg, cb)},
+        function (cb) {put_msg(namespace, 'q1', msg, cb)},
         function (cb) {
-          reserve_msg(type, 'q1', function (err, res) {
+          reserve_msg(namespace, 'q1', function (err, res) {
             id = res._id;
             cb (err, res);
           });
         },
         function (cb) {setTimeout (cb, 1000)},
-        function (cb) {commit_msg(type, 'q1', id, cb)},
+        function (cb) {commit_msg(namespace, 'q1', id, cb)},
       ], function (err, allres) {
         allres[1].should.match({
           _id: /.+/,
@@ -283,16 +283,16 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg(type, 'q1', msg, cb)},
+        function (cb) {put_msg(namespace, 'q1', msg, cb)},
         function (cb) {
-          reserve_msg(type, 'q1', function (err, res) {
+          reserve_msg(namespace, 'q1', function (err, res) {
             id = res._id;
             cb (err, res);
           });
         },
         function (cb) {setTimeout (cb, 1000)},
-        function (cb) {rollback_msg(type, 'q1', id, cb)},
-        function (cb) {get_msg(type, 'q1', cb)},
+        function (cb) {rollback_msg(namespace, 'q1', id, cb)},
+        function (cb) {get_msg(namespace, 'q1', cb)},
       ], function (err, allres) {
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 100);
@@ -330,14 +330,14 @@ _.forEach([
           var tries;
           async.series ([
             function (cb) {
-              reserve_msg(type, 'q1', function (err, res) {
+              reserve_msg(namespace, 'q1', function (err, res) {
                 id = res._id;
                 tries = res.tries;
                 cb (err, res);
               });
             },
             function (cb) {setTimeout (cb, 1000)},
-            function (cb) {commit_or_rollback_msg (type, 'q1', id, tries, cb)},
+            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, tries, cb)},
           ], cb);
         },
         function (cb) {
@@ -346,17 +346,17 @@ _.forEach([
           async.series ([
             function (cb) {setTimeout (cb, 1000)},
             function (cb) {
-              reserve_msg(type, 'q1', function (err, res) {
+              reserve_msg(namespace, 'q1', function (err, res) {
                 id = res._id;
                 tries = res.tries;
                 cb (err, res);
               });
             },
             function (cb) {setTimeout (cb, 1000)},
-            function (cb) {commit_or_rollback_msg (type, 'q1', id, tries, cb)},
+            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, tries, cb)},
           ], cb);
         },
-        function (cb) {put_msg_delayed(type, 'q1', msg, 2, cb)},
+        function (cb) {put_msg_delayed(namespace, 'q1', msg, 2, cb)},
       ], function (err, allres) {
         
         allres[0][0].should.match({
@@ -389,15 +389,15 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg_delayed(type, 'q1', msg, 2, cb)},
+        function (cb) {put_msg_delayed(namespace, 'q1', msg, 2, cb)},
         function (cb) {
-          reserve_msg(type, 'q1', function (err, res) {
+          reserve_msg(namespace, 'q1', function (err, res) {
             id = res._id;
             cb (err, res);
           });
         },
         function (cb) {setTimeout (cb, 1000)},
-        function (cb) {commit_msg(type, 'q1', id, cb)},
+        function (cb) {commit_msg(namespace, 'q1', id, cb)},
       ], function (err, allres) {
         allres[1].should.match({
           _id: /.+/,
@@ -425,16 +425,16 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg(type, 'q1', msg, cb)},
+        function (cb) {put_msg(namespace, 'q1', msg, cb)},
         function (cb) {
-          reserve_msg(type, 'q1', function (err, res) {
+          reserve_msg(namespace, 'q1', function (err, res) {
             id = res._id;
             cb (err, res);
           });
         },
         function (cb) {setTimeout (cb, 1000)},
-        function (cb) {rollback_msg_delay(type, 'q1', id, 2000, cb)},
-        function (cb) {get_msg(type, 'q1', cb)},
+        function (cb) {rollback_msg_delay(namespace, 'q1', id, 2000, cb)},
+        function (cb) {get_msg(namespace, 'q1', cb)},
       ], function (err, allres) {
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(3000, 100);
@@ -466,7 +466,7 @@ _.forEach([
       };
 
       async.series([
-        function (cb) {rollback_msg_unknown (type, 'q1', '112233445566778899001122', cb)},
+        function (cb) {rollback_msg_unknown (namespace, 'q1', '112233445566778899001122', cb)},
       ], function (err, allres) {
         should(err).equal (null);
         allres[0].status.should.equal (404)

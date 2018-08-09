@@ -12,13 +12,18 @@ class Scope {
   constructor () {
     this._stats_providers = {};
     this._signal_providers = {};
-    this._q_envs = {};
+    this._q_namespaces = {};
   }
 
 
   //////////////////////////////
-  type (t) {
-    return this._q_envs[t];
+  namespaces () {
+    return this._q_namespaces;
+  }
+
+  //////////////////////////////
+  namespace (t) {
+    return this._q_namespaces[t];
   }
   
   
@@ -98,7 +103,7 @@ class Scope {
             return cb (err);
           }
 
-          this._q_envs [namespace_name] = {factory: factory, q_repo: new Map ()};
+          this._q_namespaces [namespace_name] = {factory: factory, q_repo: new Map ()};
           logger.info ('loaded queue namespace [%s] (keuss/backends/%s)', namespace_name, namespace.factory);
           cb ();
         });
@@ -127,18 +132,18 @@ class Scope {
     var tasks = [];
     var self = this;
     
-    _.forEach (this._q_envs, function (type_obj, type_name) {
+    _.forEach (this._q_namespaces, function (ns_obj, ns_name) {
       tasks.push (function (cb) {
-        var bk = type_obj.factory;
+        var bk = ns_obj.factory;
         
         bk.recreate_topology (function (err, ql) {
           if (err) return cb (err);
 
-          type_obj.q_repo.clear ();
+          ns_obj.q_repo.clear ();
 
           _.forEach (ql, function (v, k) {
-            type_obj.q_repo.set (k, v);
-            logger.info ('%s: added queue [%s]', type_name, k);
+            ns_obj.q_repo.set (k, v);
+            logger.info ('%s: added queue [%s]', ns_name, k);
           });
 
           cb ();
@@ -151,14 +156,21 @@ class Scope {
   
   
   //////////////////////////////
-  queues () {
+  queues (ns) {
     var ret = {};
-    
-    _.forEach (this._q_envs, function (qenv, ns) {
-      qenv.q_repo.forEach (function (q_obj, q_name) {
-        ret [q_name + '@' + ns] = q_obj;
+
+    if (!ns) {
+      _.forEach (this._q_namespaces, function (qns, ns) {
+        qns.q_repo.forEach (function (q_obj, q_name) {
+          ret [q_name + '@' + ns] = q_obj;
+        });
       });
-    });
+    }
+    else {
+      _.forEach (this._q_namespaces[ns], function (q_obj, q_name) {
+        ret [q_name] = q_obj;
+      });
+    }
     
     return ret;
   }

@@ -88,9 +88,9 @@ var config = {
 };
 
 
-function put_msg(type, q, msg, cb) {
+function put_msg(namespace, q, msg, cb) {
   request(theApp)
-    .put('/q/' + type + '/' + q)
+    .put('/q/' + namespace + '/' + q)
     .send(msg)
     .auth('test', 'toast')
     .expect(200)
@@ -99,9 +99,9 @@ function put_msg(type, q, msg, cb) {
     });
 }
 
-function put_msg_delayed(type, q, msg, delay, cb) {
+function put_msg_delayed(namespace, q, msg, delay, cb) {
   request(theApp)
-    .put('/q/' + type + '/' + q)
+    .put('/q/' + namespace + '/' + q)
     .query({
       delay: delay
     })
@@ -113,9 +113,9 @@ function put_msg_delayed(type, q, msg, delay, cb) {
     });
 }
 
-function get_msg(type, q, cb) {
+function get_msg(namespace, q, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .expect(200)
     .auth('test', 'toast')
     .end(function (err, res) {
@@ -123,9 +123,9 @@ function get_msg(type, q, cb) {
     });
 }
 
-function get_msg_timeout(type, q, timeout, cb) {
+function get_msg_timeout(namespace, q, timeout, cb) {
   request(theApp)
-    .get('/q/' + type + '/' + q)
+    .get('/q/' + namespace + '/' + q)
     .query({
       to: timeout
     })
@@ -142,8 +142,8 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape'
-], function (type) {
-  describe('REST scheduled operations on queue type ' + type, function () {
+], function (namespace) {
+  describe('REST scheduled operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
@@ -170,10 +170,10 @@ _.forEach([
       };
       async.series([
         function (cb) {
-          put_msg(type, 'q1', msg, cb)
+          put_msg(namespace, 'q1', msg, cb)
         },
         function (cb) {
-          get_msg(type, 'q1', cb)
+          get_msg(namespace, 'q1', cb)
         },
       ], function (err, allres) {
         allres[1].should.match({
@@ -190,7 +190,7 @@ _.forEach([
       var t0 = new Date().getTime();
       async.series([
         function (cb) {
-          get_msg_timeout(type, 'q1', 2000, cb)
+          get_msg_timeout(namespace, 'q1', 2000, cb)
         }
       ], function (err, allres) {
         allres[0].should.match({
@@ -217,10 +217,10 @@ _.forEach([
       var t0 = new Date().getTime();
       async.series([
         function (cb) {
-          put_msg_delayed(type, 'q1', msg, 2, cb)
+          put_msg_delayed(namespace, 'q1', msg, 2, cb)
         },
         function (cb) {
-          get_msg(type, 'q1', cb)
+          get_msg(namespace, 'q1', cb)
         },
       ], function (err, allres) {
         allres[1].should.match({
@@ -248,11 +248,11 @@ _.forEach([
       var t0 = new Date().getTime();
       async.parallel([
         function (cb) {
-          get_msg(type, 'q1', cb)
+          get_msg(namespace, 'q1', cb)
         },
         function (cb) {
           setTimeout(function () {
-            put_msg_delayed(type, 'q1', msg, 2, cb)
+            put_msg_delayed(namespace, 'q1', msg, 2, cb)
           }, 1000)
         }
       ], function (err, allres) {
@@ -282,13 +282,13 @@ _.forEach([
       var t0 = new Date().getTime();
       async.series([
         function (cb) {
-          put_msg_delayed(type, 'q1', msg, 2, cb)
+          put_msg_delayed(namespace, 'q1', msg, 2, cb)
         },
         function (cb) {
           setTimeout(cb, 1000)
         },
         function (cb) {
-          get_msg(type, 'q1', cb)
+          get_msg(namespace, 'q1', cb)
         },
       ], function (err, allres) {
 
