@@ -370,6 +370,13 @@ class STOMP {
     // fire session end
     sess.s = 'ended';
     sess.sess.destroy ();
+
+    _.forEach (sess.subscrs, function (subscr, subscr_id) {
+      logger.verbose ('STOMP session produced an error, ending subscription %s on %s', subscr_id, subscr.destination);
+      subscr.qc.stop ();
+    });
+
+    sess.subscrs = {};
   }
 
 
