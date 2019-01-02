@@ -1,6 +1,6 @@
 {
   "name": "keuss-server",
-  "version": "1.2.2",
+  "version": "1.2.4",
   "keywords": [
     "queue",
     "job",
@@ -28,24 +28,24 @@
     "keuss": "./index.js"
   },
   "dependencies": {
-    "keuss": "1.4.3",
+    "keuss": "1.4.5",
     "stomp-frames": "1.0.1",
-    "async": "2.6.0",
-    "lodash": "4.17.5",
-    "express": "4.16.2",
-    "jade": "1.11.0",
-    "body-parser": "1.18.2",
-    "uuid": "3.2.1",
-    "express-basic-auth": "1.1.4",
-    "cascade-config": "1.2.1",
+    "async": "2.6.1",
+    "lodash": "4.17.11",
+    "express": "4.16.4",
+    "pug": "2.0.3",
+    "body-parser": "1.18.3",
+    "uuid": "3.3.2",
+    "express-basic-auth": "1.1.6",
+    "cascade-config": "1.4.1",
     "winston-log-space": "1.0.1"
   },
   "devDependencies": {
-    "mocha": "5.0.2",
-    "should": "13.2.1",
+    "mocha": "5.2.0",
+    "should": "13.2.3",
     "random-to": "0.0.2",
-    "supertest": "3.0.0",
-    "stompit": "0.25.0"
+    "supertest": "3.3.0",
+    "stompit": "0.26.0"
   },
   "scripts": {
     "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/"

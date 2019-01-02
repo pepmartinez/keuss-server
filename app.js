@@ -14,7 +14,7 @@ function app (config, scope, extra_init, cb) {
   var logger = Log.logger ('app');
   
   app.set ('views', path.join (__dirname, 'views'));
-  app.set ('view engine', 'jade');
+  app.set ('view engine', 'pug');
   
   app.use(basicAuth({
     users: (config.http && config.http.users) || { 'test': 'test' },
