@@ -66,16 +66,13 @@ class Scope {
     var tasks = [];
     
     _.forEach (config.namespaces, (namespace, namespace_name) => {
-
       if (namespace.disable) {
         logger.info ('queue namespace [%s] disabled, not loading', namespace_name);
         return;
       }
-
     
       tasks.push (cb => {
         var bk_module = require ('keuss/backends/' + namespace.factory);
-
         var stats_provider = this._stats_providers [namespace.config.stats || ''];
 
         if (stats_provider) {
@@ -94,7 +91,7 @@ class Scope {
           };
         }
 
-        var bk_opts= {name: namespace_name};
+        var bk_opts = {name: namespace_name};
         _.merge (bk_opts, namespace.config);
 
         bk_module (bk_opts, (err, factory) => {
@@ -124,6 +121,47 @@ class Scope {
       function (cb) {self._init_signal_providers (config, cb);},
       function (cb) {self._init_backends         (config, cb);}
     ], cb);
+  }
+
+
+  //////////////////////////////
+  end (cb) {
+    var tasks = [];
+    _.each (this._q_namespaces, (v, k) => {
+      tasks.push ((cb) => {
+        logger.info (`closing backend ${k}`)
+        v.q_repo.forEach ((q, qname) => {
+          logger.info (`cancelling queue ${qname}`);
+          // TODO drain queues
+          q.cancel();
+        });
+        v.factory.close (cb);
+      });
+    });
+
+    async.parallel (tasks, (err) => {
+      logger.info ('all factories closed');
+      cb (err);
+    });
+  }
+
+
+  //////////////////////////////
+  drain (cb) {
+    var tasks = [];
+    _.each (this._q_namespaces, (v, k) => {
+      v.q_repo.forEach ((q, qname) => {
+        tasks.push ((cb) => {
+          logger.info (`draining queue ${qname}`);
+          q.drain( cb);
+        });
+      });
+    });
+
+    async.parallel (tasks, (err) => {
+      logger.info ('all queus drained');
+      cb (err);
+    });
   }
 
 

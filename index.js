@@ -23,7 +23,7 @@ cconf
   .env  ({prefix: 'KS_'})
   .args ()
   .file (__dirname + '/etc/config.js',       {ignore_missing: true})
-  .file (__dirname + '/etc/config-{env}.js', {ignore_missing: true})
+  .file (__dirname + '/etc/config-{NODE_ENV:development}.js', {ignore_missing: true})
   .env  ({prefix: 'KS_'})
   .args ()
   .done (function (err, config) {
@@ -44,43 +44,58 @@ cconf
       var Stomp =   require ('./stomp');
       var Scope =   require ('./Scope');
 
-      var stomp_server;
-      var scope = new Scope ();
+      var context = {};
+      context.scope = new Scope ();
 
       async.series ([
         function (cb) {
-          scope.init (config, cb);
+          context.scope.init (config, cb);
         },
         function (cb) {
           // init stomp server
-          stomp_server = new Stomp (config, scope);
-          stomp_server.run (cb);
+          context.stomp_server = new Stomp (config, context.scope);
+          context.stomp_server.run (cb);
         },
         function (cb) {
           // init http/rest server
           var extra_init = function (app) {
             app.get ('/stomp/status', function (req, res){
-            res.send (stomp_server.status());
-          });
-        };
+              res.send (context.stomp_server.status());
+            });
+          };
     
-        BaseApp (config, scope, extra_init, function (err, app) {
-          if (err) return cb (err);
+          BaseApp (config, context.scope, extra_init, function (err, app) {
+            if (err) return cb (err);
         
-          var server = http.createServer (app);
-          var port = config.http.port || 3444;
+            context.server = require('http-shutdown')(http.createServer (app));
+            var port = config.http.port || 3444;
       
-          server.listen (port, function () {
-            logger.info ('REST server listening at port %s', port);
-            cb ();
+            context.server.listen (port, function () {
+              logger.info ('REST server listening at port %s', port);
+              cb ();
+            });
           });
-        });
+        }
+      ], function (err) {
+        if (err) {
+          logger.error (err);
+          process.exit (1);
+        }
+      });
+
+      function __shutdown () {
+        logger.info (`shutdown init`);
+        async.parallel ([
+          (cb) => context.scope.drain (cb),
+          (cb) => context.server.shutdown (cb),
+          (cb) => context.stomp_server.end (cb),
+          (cb) => context.scope.end (cb)
+        ], (err) => {
+          logger.info (`shutdown done`)
+        })
       }
-    ], function (err) {
-      if (err) {
-        logger.error (err);
-        process.exit (1);
-      }
+
+      process.on ('SIGINT', __shutdown);
+      process.on ('SIGTERM', __shutdown);
     });
-  });
 });

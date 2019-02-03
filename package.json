@@ -28,16 +28,17 @@
     "keuss": "./index.js"
   },
   "dependencies": {
-    "keuss": "1.4.5",
-    "stomp-frames": "1.0.1",
     "async": "2.6.1",
-    "lodash": "4.17.11",
-    "express": "4.16.4",
-    "pug": "2.0.3",
     "body-parser": "1.18.3",
-    "uuid": "3.3.2",
-    "express-basic-auth": "1.1.6",
     "cascade-config": "1.4.1",
+    "express": "4.16.4",
+    "express-basic-auth": "1.1.6",
+    "http-shutdown": "^1.2.0",
+    "keuss": "1.4.5",
+    "lodash": "4.17.11",
+    "pug": "2.0.3",
+    "stomp-frames": "1.0.1",
+    "uuid": "3.3.2",
     "winston-log-space": "1.0.1"
   },
   "devDependencies": {

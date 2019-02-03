@@ -83,7 +83,7 @@ $(function() {
     $('#error-text').html = '';
   });
   
-  qtable = $('#qtable') .DataTable({
+  qtable = $('#qtable').DataTable({
     processing: true,
     select: 'single',
     ajax: '/q?array=1',

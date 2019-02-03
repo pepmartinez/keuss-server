@@ -184,7 +184,7 @@ class STOMP {
     this._sessions = {};
 
     var self = this;
-    setInterval (function () {self._keep_alive ()}, this._config.keepalive_interval || 1000);
+    this._ka_timer = setInterval (function () {self._keep_alive ()}, this._config.keepalive_interval || 1000);
   }
 
 
@@ -206,12 +206,19 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   end (cb) {
+    logger.info ('STOMP server ending');
+
+    clearInterval (this._ka_timer);
+
     this._server.close (() => {
       // end all sessions
       _.forEach (this._sessions, function (v, k) {
+        logger.info ('STOMP: closing session %s', k);
         v.s = 'ended';
         v.sess.destroy();
       });
+
+      logger.info ('STOMP server closed');
 
       cb ();
     });

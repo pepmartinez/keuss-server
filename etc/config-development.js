@@ -29,6 +29,15 @@ var config = {
   },
 
   namespaces: {
+    N: {
+      factory: 'mongo',
+      disable: false,
+      config: {
+        url: '{data.mongo.url:mongodb://localhost/keuss}',
+        stats: 'mongo',
+        signaller: 'mongo'
+      }
+    },
     ns1: {
       factory: 'mongo',
       disable: false,
