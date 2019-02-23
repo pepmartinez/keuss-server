@@ -1,6 +1,6 @@
 {
   "name": "keuss-server",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "keywords": [
     "queue",
     "job",
@@ -28,25 +28,25 @@
     "keuss": "./index.js"
   },
   "dependencies": {
-    "async": "2.6.1",
-    "body-parser": "1.18.3",
-    "cascade-config": "1.4.1",
-    "express": "4.16.4",
-    "express-basic-auth": "1.1.6",
-    "http-shutdown": "^1.2.0",
-    "keuss": "1.4.5",
-    "lodash": "4.17.11",
-    "pug": "2.0.3",
-    "stomp-frames": "1.0.1",
-    "uuid": "3.3.2",
-    "winston-log-space": "1.0.1"
+    "async": "~2.6.1",
+    "body-parser": "~1.18.3",
+    "cascade-config": "~1.4.2",
+    "express": "~4.16.4",
+    "express-basic-auth": "~1.1.6",
+    "http-shutdown": "~1.2.0",
+    "keuss": "1.4.6",
+    "lodash": "~4.17.11",
+    "pug": "~2.0.3",
+    "stomp-frames": "~1.0.2",
+    "uuid": "~3.3.2",
+    "winston-log-space": "~1.0.2"
   },
   "devDependencies": {
-    "mocha": "5.2.0",
-    "should": "13.2.3",
-    "random-to": "0.0.2",
-    "supertest": "3.3.0",
-    "stompit": "0.26.0"
+    "mocha": "~5.2.0",
+    "should": "~13.2.3",
+    "random-to": "~0.0.2",
+    "supertest": "~3.4.2",
+    "stompit": "~0.26.0"
   },
   "scripts": {
     "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/"

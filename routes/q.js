@@ -201,6 +201,10 @@ function get_router(config, scope) {
           res.status(504);
           res.statusMessage = 'Queue Pop Timeout';
           res.send(err);
+        } else if (err == 'cancel') {
+          res.status(410);
+          res.statusMessage = 'Queue Pop Cancelled';
+          res.send(err);
         } else {
           res.status(500).send(err);
         }
@@ -299,19 +303,19 @@ function get_router(config, scope) {
     next();
   });
 
-  router.get('/', _get_queues);
-  router.get('/:namespace', _get_queues_of_namespace);
-  router.get('/:namespace/:q/status', _get_queue_status);
-  router.get('/:namespace/:q/consumers', _get_queue_consumers);
+  router.get ('/', _get_queues);
+  router.get ('/:namespace', _get_queues_of_namespace);
+  router.get ('/:namespace/:q/status', _get_queue_status);
+  router.get ('/:namespace/:q/consumers', _get_queue_consumers);
 
-  router.put('/:namespace/:q', _push_in_queue);
-  router.post('/:namespace/:q', _push_in_queue);
-  router.get('/:namespace/:q', _pop_from_queue);
+  router.put  ('/:namespace/:q', _push_in_queue);
+  router.post ('/:namespace/:q', _push_in_queue);
+  router.get  ('/:namespace/:q', _pop_from_queue);
 
-  router.delete('/:namespace/:q/consumer/:tid', _cancel_pop);
+  router.delete ('/:namespace/:q/consumer/:tid', _cancel_pop);
 
-  router.patch('/:namespace/:q/commit/:id', _commit);
-  router.patch('/:namespace/:q/rollback/:id', _rollback);
+  router.patch ('/:namespace/:q/commit/:id', _commit);
+  router.patch ('/:namespace/:q/rollback/:id', _rollback);
 
   return router;
 }
