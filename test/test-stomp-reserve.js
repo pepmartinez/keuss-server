@@ -14,6 +14,7 @@ var signal_redis = require('keuss/signal/redis-pubsub');
 var stats_mongo =  require('keuss/stats/mongo');
 var signal_mongo = require('keuss/signal/mongo-capped');
 
+
 var config = {
   http: {
     users: {
@@ -24,20 +25,7 @@ var config = {
     mongo_simple: {
       factory: 'mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
-        pollInterval: 17000,
-        stats: {
-          provider: stats_mongo,
-        },
-        signaller: {
-          provider: signal_mongo
-        }
-      }
-    },
-    mongo_pipeline: {
-      factory: 'pl-mongo',
-      config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__mongo',
         pollInterval: 17000,
         stats: {
           provider: stats_mongo,
@@ -50,13 +38,52 @@ var config = {
     mongo_tape: {
       factory: 'ps-mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__ps-mongo',
         pollInterval: 17000,
         stats: {
           provider: stats_mongo,
         },
         signaller: {
           provider: signal_mongo
+        }
+      }
+    },
+    mongo_pipeline: {
+      factory: 'pl-mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__pl-mongo',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        }
+      }
+    },
+    bucket_mongo: {
+      factory: 'bucket-mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        }
+      }
+    },
+    bucket_mongo_safe: {
+      factory: 'bucket-mongo-safe',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo-safe',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
         }
       }
     },
@@ -122,7 +149,8 @@ _.forEach([
   'redis_oq',
   'mongo_simple',
   'mongo_pipeline',
-  'mongo_tape'
+  'mongo_tape',
+  'bucket_mongo_safe'
 ], function (namespace) {
   before (function (done) {
     var Log = require ('winston-log-space');

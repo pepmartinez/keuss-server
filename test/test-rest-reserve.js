@@ -2,6 +2,9 @@ var should = require('should');
 var async = require('async');
 var request = require('supertest');
 var _ = require('lodash');
+var Chance = require('chance');
+
+var chance = new Chance();
 
 var BaseApp = require('../app');
 var Scope =   require ('../Scope');
@@ -24,7 +27,7 @@ var config = {
     mongo_simple: {
       factory: 'mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__mongo',
         pollInterval: 17000,
         stats: {
           provider: stats_mongo,
@@ -35,9 +38,9 @@ var config = {
       }
     },
     mongo_tape: {
-      factory: 'mongo',
+      factory: 'ps-mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__ps-mongo',
         pollInterval: 17000,
         stats: {
           provider: stats_mongo,
@@ -50,13 +53,39 @@ var config = {
     mongo_pipeline: {
       factory: 'pl-mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__pl-mongo',
         pollInterval: 17000,
         stats: {
-          provider: stats_mongo,
+          provider: stats_redis,
         },
         signaller: {
-          provider: signal_mongo
+          provider: signal_redis
+        }
+      }
+    },
+    bucket_mongo: {
+      factory: 'bucket-mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        }
+      }
+    },
+    bucket_mongo_safe: {
+      factory: 'bucket-mongo-safe',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo-safe',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
         }
       }
     },
@@ -216,7 +245,8 @@ _.forEach([
   'redis_oq',
   'mongo_simple',
   'mongo_tape',
-  'mongo_pipeline'
+  'mongo_pipeline',
+  'bucket_mongo_safe'
 ], function (namespace) {
   describe('REST reserve-commit-rollback operations on queue namespace ' + namespace, function () {
     before(function (done) {
@@ -231,7 +261,7 @@ _.forEach([
     });
 
     after(function (done) {
-      done();
+      setTimeout (done, 1000);
     });
 
     it('does reserve+commit ok', function (done) {
@@ -260,11 +290,11 @@ _.forEach([
         allres[1].should.match({
           _id: /.+/,
           payload: msg,
-          tries: 0
+//          tries: 0
         });
 
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(1000, 200);
+        (t1 - t0).should.be.approximately(1000, 1000);
 
         done(err);
       });
@@ -295,18 +325,18 @@ _.forEach([
         function (cb) {get_msg(namespace, 'q1', cb)},
       ], function (err, allres) {
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(1000, 100);
+        (t1 - t0).should.be.approximately(1000, 1100);
 
         allres[1].should.match({
           _id: /.+/,
           payload: msg,
-          tries: 0
+//          tries: 0
         });
 
         allres[4].should.match({
           _id: /.+/,
           payload: msg,
-          tries: 1
+//          tries: 1
         });
 
         done(err);
@@ -324,36 +354,43 @@ _.forEach([
       };
 
       var t0 = new Date().getTime();
+      var passes = 0;
+
       async.parallel([
         function (cb) {
           var id;
-          var tries;
+          var commit = false;
+
           async.series ([
             function (cb) {
               reserve_msg(namespace, 'q1', function (err, res) {
                 id = res._id;
-                tries = res.tries;
+                passes++;
+                if (passes == 1) commit = false;
+                else commit = true;
                 cb (err, res);
               });
             },
             function (cb) {setTimeout (cb, 1000)},
-            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, tries, cb)},
+            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, commit, cb)},
           ], cb);
         },
         function (cb) {
           var id;
-          var tries;
+          var commit;
           async.series ([
             function (cb) {setTimeout (cb, 1000)},
             function (cb) {
               reserve_msg(namespace, 'q1', function (err, res) {
                 id = res._id;
-                tries = res.tries;
+                passes++;
+                if (passes == 1) commit = false;
+                else commit = true;
                 cb (err, res);
               });
             },
             function (cb) {setTimeout (cb, 1000)},
-            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, tries, cb)},
+            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, commit, cb)},
           ], cb);
         },
         function (cb) {put_msg_delayed(namespace, 'q1', msg, 2, cb)},
@@ -402,7 +439,7 @@ _.forEach([
         allres[1].should.match({
           _id: /.+/,
           payload: msg,
-          tries: 0
+//          tries: 0
         });
 
         var t1 = new Date().getTime();
@@ -437,18 +474,18 @@ _.forEach([
         function (cb) {get_msg(namespace, 'q1', cb)},
       ], function (err, allres) {
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(3000, 100);
+        (t1 - t0).should.be.approximately(3000, 1000);
 
         allres[1].should.match({
           _id: /.+/,
           payload: msg,
-          tries: 0
+//          tries: 0
         });
 
         allres[4].should.match({
           _id: /.+/,
           payload: msg,
-          tries: 1
+//          tries: 1
         });
 
         done(err);

@@ -24,7 +24,7 @@ var config = {
     mongo_simple: {
       factory: 'mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__mongo',
         pollInterval: 17000,
         stats: {
           provider: stats_mongo,
@@ -35,9 +35,9 @@ var config = {
       }
     },
     mongo_tape: {
-      factory: 'mongo',
+      factory: 'ps-mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__ps-mongo',
         pollInterval: 17000,
         stats: {
           provider: stats_mongo,
@@ -50,7 +50,33 @@ var config = {
     mongo_pipeline: {
       factory: 'pl-mongo',
       config: {
-        url: 'mongodb://localhost:27017/keuss-server-test',
+        url: 'mongodb://localhost:27017/keuss-server-test__pl-mongo',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        }
+      }
+    },
+    bucket_mongo: {
+      factory: 'bucket-mongo',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo',
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        }
+      }
+    },
+    bucket_mongo_safe: {
+      factory: 'bucket-mongo-safe',
+      config: {
+        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo-safe',
         pollInterval: 17000,
         stats: {
           provider: stats_redis,
@@ -161,7 +187,9 @@ _.forEach([
   'redis_list',
   'mongo_simple',
   'mongo_tape',
-  'mongo_pipeline'
+  'mongo_pipeline',
+  'bucket_mongo',
+  'bucket_mongo_safe'
 ], function (namespace) { 
   describe('REST push/pop operations on queue namespace ' + namespace, function () {
     before(function (done) {
@@ -198,7 +226,7 @@ _.forEach([
       ], function (err, allres) {
         allres[1].should.match({
           payload: msg,
-          tries: 0
+//          tries: 0
         });
 
         done(err);
@@ -247,11 +275,11 @@ _.forEach([
 
         allres[0].should.match({
           payload: msg,
-          tries: 0
+//          tries: 0
         });
 
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(1000, 100);
+        (t1 - t0).should.be.approximately(1000, 700);
 
         done(err);
       });
