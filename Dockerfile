@@ -1,6 +1,6 @@
-# run as 
-# docker build -t pepmartinez/keuss-server:1.3.0 .
-# docker push pepmartinez/keuss-server:1.3.0
+# run as
+# docker build -t pepmartinez/keuss-server:1.3.1 .
+# docker push pepmartinez/keuss-server:1.3.1
 
 FROM node:carbon
 
