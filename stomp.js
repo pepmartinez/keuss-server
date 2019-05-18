@@ -42,7 +42,7 @@ class QConsumer {
   ///////////////////////////////////////////
   _window_release () {
     logger.debug ('QConsumer %s: trying window releases, (max %d, used %d), %d in wait, releasing a waiting consumer' , this._cid, this._wsize, this._window_used (), this._waiting_for_window.length);
-    
+
     if (this._waiting_for_window.length == 0) return;
 
     logger.debug ('QConsumer %s: window release, (max %d, used %d), releasing a waiting consumer' , this._cid, this._wsize, this._window_used ());
@@ -60,7 +60,7 @@ class QConsumer {
       this._waiting_for_window.push (function () {
         self._a_single_iteration (pcid);
       });
-      
+
       return;
     }
 
@@ -69,8 +69,14 @@ class QConsumer {
 
       // TODO manage error?
 
+      if (err == 'cancel') {
+        // consumer cancelled, end loop
+        logger.debug ('QConsumer %s: cancelled while pop from queue %s, tid is %s', pcid, self._q.name(), tid);
+        return;
+      }
+
       logger.debug ('QConsumer %s: return from pop from queue %s, tid is %s', pcid, self._q.name(), tid);
-      
+
       if (self._pop_opts.reserve && res) {
         self._pending_acks[res._id] = new Date();
         logger.debug ('QConsumer %s: new pending ack [%s]', pcid, res._id);
@@ -103,7 +109,7 @@ class QConsumer {
     var self = this;
 
     // rollback pending acks
-    var next_t = new Date().getTime (); 
+    var next_t = new Date().getTime ();
     _.forEach (this._pending_acks, function (val, id) {
       self._q.ko (id, next_t, function (err) {
         if (err) {
@@ -142,8 +148,8 @@ class QConsumer {
   nack (id, next_t, cb) {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
-    var self = this; 
-    
+    var self = this;
+
     logger.debug ('QConsumer %s: nacking id [%s], next_t is %s', this._cid, id, new Date (next_t));
 
     this._q.ko (id, next_t, function (err) {
@@ -178,8 +184,8 @@ class STOMP {
     // {
     //   socket: net socket for session
     //   s: status (fresh, connected)
-    //   sess: SF session 
-    //   subscrs: {} 
+    //   sess: SF session
+    //   subscrs: {}
     // }
     this._sessions = {};
 
@@ -271,7 +277,7 @@ class STOMP {
       else {
         // do we need to send ping?
         if (
-          (s.heartbeat[1] > self._config.keepalive_interval) && 
+          (s.heartbeat[1] > self._config.keepalive_interval) &&
           (wdelta_t > (s.heartbeat[1] - self._config.keepalive_interval))
         ) {
           logger.verbose ('keepalive@%s: sending ping', id);
@@ -315,7 +321,7 @@ class STOMP {
 
     ss.on ('frame', function (frm) {
       logger.debug ('[STOMP session %s] got frame %j', id, frm, {});
-      
+
       var sess = self._sessions[id];
 
       if (!sess) {
@@ -440,14 +446,14 @@ class STOMP {
   ///////////////////////////////////////////////////////////////////////////
   _frame_CONNECT (sess, frm) {
     this._frame_STOMP (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_STOMP (sess, frm) {
     logger.debug ('%s@stomp: got STOMP/CONNECT, %j', sess.id, frm);
     if (sess.s != 'fresh') return this._error_in_session (sess, frm, 'already connected');
-    
+
     sess.s = 'connected';
     var vers = frm['accept-version'];
 
@@ -468,7 +474,7 @@ class STOMP {
     res_frm.header ('version', '1.2');
     res_frm.header ('heart-beat', hb[1] + ',' + hb[0]);
     this._write_frm (sess, res_frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
@@ -508,14 +514,14 @@ class STOMP {
         self._honor_receipt (sess, frm);
       }
     });
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_SUBSCRIBE (sess, frm) {
     var self = this;
     logger.debug ('%s@stomp: got SUBSCRIBE, %j', sess.id, frm);
-    
+
     var subscribe_opts = {};
     var q = this._get_queue (frm.destination);
 
@@ -553,9 +559,9 @@ class STOMP {
 
         return;
       }
-      
+
       // pass error if no payload
-      if (!item.payload) {
+      if ((!item) || (!item.payload)) {
         return self._error_in_session (sess, frm, util.format ('subscription %s got an empty message. Queue may not support ack level "client-individual"', frm.id));
       }
 
@@ -564,11 +570,11 @@ class STOMP {
       m_frm.body (JSON.stringify (item.payload));
       m_frm.header ('subscription', frm.id);
       m_frm.header ('message-id', frm.id + '-' + (item._id ? item._id.toString() : 'none'));
-      m_frm.header ('destination', q.name()); 
+      m_frm.header ('destination', q.name());
       m_frm.header ('x-mature', item.mature.toString ());
       m_frm.header ('x-tries', item.tries + '');
       m_frm.header ('content-type', 'application/json ; charset=utf8');
-      
+
       self._write_frm (sess, m_frm);
     });
 
@@ -582,7 +588,7 @@ class STOMP {
 
     logger.info ('%s@stomp: subscribed to %s, id %s', sess.id, frm.destination, frm.id);
     this._honor_receipt (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
@@ -595,16 +601,16 @@ class STOMP {
 
     logger.info ('%s@stomp: subscription %s ended (destination %s)', sess.id, frm.id, subscr.destination);
     subscr.qc.stop ();
-    
+
     delete sess.subscrs[frm.id];
     this._honor_receipt (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_ACK (sess, frm) {
     logger.debug ('%s@stomp: got ACK, %j', sess.id, frm);
- 
+
     var arr = frm.id.split('-');
 
     if (arr.length != 2) return this._error_in_session (sess, frm, util.format ('invalid message id %s', frm.id));
@@ -621,13 +627,13 @@ class STOMP {
       if (err) return self._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
       logger.verbose ('%s@stomp: acked %s', sess.id, frm.id);
     });
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_NACK (sess, frm) {
     logger.debug ('%s@stomp: got NACK, %j', sess.id, frm);
- 
+
     var arr = frm.id.split('-');
 
     if (arr.length != 2) return this._error_in_session (sess, frm, util.format ('invalid message id %s', frm.id));
@@ -641,7 +647,7 @@ class STOMP {
 
     var next_t;
     var x_next_t = parseInt (frm.header ('x-next-t'));
-  
+
     if (x_next_t){
       next_t = x_next_t;
     } else {
@@ -655,7 +661,7 @@ class STOMP {
       if (err) return self._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
       logger.verbose ('%s@stomp: nacked %s', sess.id, frm.id);
     });
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
@@ -665,19 +671,19 @@ class STOMP {
 
     // fire session end
     sess.sess.end ();
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_RECEIPT (sess, frm) {
     this._unexpected (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_CONNECTED (sess, frm) {
     this._unexpected (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
@@ -689,25 +695,25 @@ class STOMP {
   ///////////////////////////////////////////////////////////////////////////
   _frame_MESSAGE (sess, frm) {
     this._unexpected (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_BEGIN (sess, frm) {
     this._not_implemented (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_COMMIT (sess, frm) {
     this._not_implemented (sess, frm);
-  } 
+  }
 
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_ABORT (sess, frm) {
     this._not_implemented (sess, frm);
-  } 
+  }
 }
 
 module.exports = STOMP;
