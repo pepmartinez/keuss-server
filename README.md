@@ -4,24 +4,24 @@ Job Queues' server accesible via STOMP and REST, built with keuss
 Keuss-server provides STOMP and REST-like interfaces atop [keuss](https://github.com/pepmartinez/keuss), plus a simple web console to check queues' statuses. It aims to offer all functionalities provided by keuss
 
 ## Install & run
-Easiest way is to `npm install keuss-server`; then, edit the config.js file at will and run `node index.js`. 
+Easiest way is to `npm install keuss-server`; then, edit the config.js file at will and run `node index.js`.
 
 keuss-server comes with mocha tests, runnable with the usual `npm test`. It expects a local running redis server, and a local running mongodb server (just as they are once installed in ubuntu, for example)
 
 ## Logging
-Keuss-server uses [winston-log-space](https://github.com/pepmartinez/winston-log-space) for logging, and by default it logs to stdout only, on a `info` level. See `winston-log-space` for ow to configure and tailor logging
+Keuss-server uses [winston-log-space](https://github.com/pepmartinez/winston-log-space) for logging, and by default it logs to stdout only, on a `info` level. See `winston-log-space` for how to configure and tailor logging
 
-## Configuration 
+## Configuration
 Keuss-server's core functionality is provided by a set of keuss client objects, plus a REST iterface (express) and a STOMP layer on top; as such, it works largely as if it were any other keuss app
 
 This concerns more specifically to the stats and signaller providers used: if the defaut ones are used (backed by memory and therefore bound to a single process) the keuss-server will work pretty much fine, but will be totally self-contain: the queues could not be correctly seen externally, but only in a degraded state where the stats are not shared and no signalling is present (see keuss' docs for more info)
 
-It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire several keuss-server instances (or use external keuss clients) that would work as a single cluster. 
+It is recommended to use a shared-state stats and signaller such as redis; in this way all the queues are effectively shared, and one can fire several keuss-server instances (or use external keuss clients) that would work as a single cluster.
 
 The config is composed using [cascade-config](https://github.com/pepmartinez/cascade-config) with the following loaders:
-* defaults: 
+* defaults:
   ```
-  { 
+  {
     http: {
       port: 3444,
       users: {}
@@ -114,7 +114,7 @@ The included STOMP stack supports version 1.2 only of STOMP, with the following 
 * On SUBSCRIBE, ack type *client* is not supported; you'd need to use *client-individual* and emit ack/nack for each message. Also, *client-individual* is also not supported on queues lacking reserve support (type redis:list)
 * the *content-type* is limited to be `application/json` only
 * On NACK frames:
-  * a NACKed message will be delayed by 5 secs; that is, a NACKed message will not be reserved again (by any keuss client) until at least 5 secs have elapsed 
+  * a NACKed message will be delayed by 5 secs; that is, a NACKed message will not be reserved again (by any keuss client) until at least 5 secs have elapsed
   * there is no limit of retries
 
 There are also a few additions on top of the standard STOMP:
