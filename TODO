@@ -4,4 +4,8 @@
   + add auth?
   + add http introspection         (minimally done)
   + profile cpu/mem
+* Monitoring
+  + add prometheus scrape
+* AMQP
+  + add it
 
