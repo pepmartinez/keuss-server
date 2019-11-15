@@ -421,18 +421,18 @@ class STOMP {
   ///////////////////////////////////////////////////////////////////////////
   _get_queue (destination) {
     // dest must be /ns/queue
-    if (!destination.match (/^\/[a-zA-Z0-9\\-_:]+\/[a-zA-Z0-9\\-_]+$/)) {
-      return `destination ${destination} must match /<namespace>/<queue>`;
+    if (!destination.match (/^\/q\/[a-zA-Z0-9\\-_:]+\/[a-zA-Z0-9\\-_]+$/)) {
+      return `destination ${destination} must match /q/<namespace>/<queue>`;
     }
 
     var arr = destination.split('/');
-    var ns = this._scope.namespace (arr[1]);
+    var ns = this._scope.namespace (arr[2]);
 
     if (!ns) {
       return `unknown namespace ${ns} on destination queue ${destination}`;
     }
 
-    var qname = arr[2];
+    var qname = arr[3];
 
     if (!ns.q_repo.has(qname)) {
       ns.q_repo.set(qname, ns.factory.queue(qname, {}));

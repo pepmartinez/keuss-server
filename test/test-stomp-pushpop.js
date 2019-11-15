@@ -2,9 +2,8 @@ var should =  require('should');
 var async =   require('async');
 var _ =       require('lodash');
 var stompit = require('stompit');
+var Log =     require ('winston-log-space');
 
-var Stomp =   require ('../stomp');
-var Scope =   require ('../Scope');
 
 var stomp_server;
 
@@ -128,7 +127,7 @@ function stompcl (cb) {
       'heart-beat': '5000,6000'
     }
   };
-   
+
   stompit.connect(connectOptions, cb);
 }
 
@@ -153,24 +152,29 @@ _.forEach([
   'bucket_mongo',
   'bucket_mongo_safe'
 ], function (namespace) {
-  describe('STOMP push/pop operations on queue namespace ' + namespace, function () {
-    before(function (done) {
-      var scope = new Scope ();
-      scope.init (config, function (err) {
-        if (err) return done (err);
-        stomp_server = new Stomp (config, scope);
-        stomp_server.run (done);
-      });
-    });
+  describe('STOMP push/pop operations on queue namespace ' + namespace, () => {
 
-    after(function (done) {
-      stomp_server.end (function () {
-        setTimeout (done, 1000);
-      });
-    });
+    before (done => async.series ([
+//      cb => Log.init (cb),
+      cb => {
+        const Stomp = require ('../stomp');
+        const Scope = require ('../Scope');
+
+        var scope = new Scope ();
+        scope.init (config, err  => {
+          if (err) return cb (err);
+          stomp_server = new Stomp (config, scope);
+          stomp_server.run (cb);
+        });
+      }
+    ], done));
+
+    after(done => stomp_server.end (() => {
+      setTimeout (done, 1000);
+    }));
 
     it('does push/pop ok, ack to auto', function (done) {
-      var q = '/' + namespace + '/stomp_test_1';
+      var q = '/q/' + namespace + '/stomp_test_1';
       var msg = {
         a: 'aaa',
         b: 666,
@@ -187,10 +191,10 @@ _.forEach([
           'destination': q,
           'ack': 'auto'
         };
-        
+
         cl.subscribe(subscribeHeaders, function(err, message) {
           if (err) return done(err);
-          
+
           message.readString ('utf-8', function (err, body) {
             if (err) return done(err);
             JSON.parse (body).should.eql (msg);

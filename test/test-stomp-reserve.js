@@ -129,7 +129,7 @@ function stompcl (cb) {
       'heart-beat': '5000,6000'
     }
   };
-   
+
   stompit.connect(connectOptions, cb);
 }
 
@@ -172,9 +172,9 @@ _.forEach([
         setTimeout (done, 500);
       });
     });
-    
+
     it('does push/reserve/commit ok', function (done) {
-      var q = '/' + namespace + '/stomp_test_2';
+      var q = '/q/' + namespace + '/stomp_test_2';
       var msg = {
         a: 'aaa',
         b: 666,
@@ -191,10 +191,10 @@ _.forEach([
           'destination': q,
           'ack': 'client-individual'
         };
-        
+
         cl.subscribe(subscribeHeaders, function(err, message) {
           if (err) return done(err);
-          
+
           message.readString ('utf-8', function (err, body) {
             if (err) return done(err);
             JSON.parse (body).should.eql (msg);
