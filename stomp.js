@@ -293,8 +293,11 @@ class STOMP {
     var id = uuid.v4();
     var self = this;
 
-    socket.on ('end', function () {
-      logger.verbose ('STOMP socket ended (session %s)', id);
+    socket.on ('end', () => logger.verbose ('STOMP socket ended (session %s)', id));
+
+    socket.on ('error', err => {
+      logger.error ('STOMP socket reported an error, closing (session %s): %j', id, err);
+      socket.destroy();
     });
 
     socket.on ('close', function () {
