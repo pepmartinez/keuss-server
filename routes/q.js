@@ -1,5 +1,3 @@
-'use strict';
-
 var express = require('express');
 var async = require('async');
 var _ = require('lodash');
@@ -10,16 +8,14 @@ function _list_queues_tree(scope, req, res) {
   var queues = scope.queues();
   var tasks = {};
 
-  _.forEach(queues, function (q, qname) {
-    tasks[qname] = function (cb) {
-      q.status(cb)
-    }
+  _.forEach(queues, (q, qname) => {
+    tasks[qname] = cb => q.status(cb);
   });
 
   var hier = {};
 
-  async.parallel(tasks, function (err, r) {
-    _.forEach(r, function (q, qname) {
+  async.parallel(tasks, (err, r) => {
+    _.forEach(r, (q, qname) => {
       if (!hier[q.namespace]) {
         hier[q.namespace] = {
           title: q.namespace,
@@ -45,9 +41,7 @@ function _list_queues_tree(scope, req, res) {
 
     var final_res = [];
 
-    _.forEach(hier, function (v, k) {
-      final_res.push(v);
-    });
+    _.forEach(hier, (v, k) => final_res.push(v));
 
     res.send(final_res);
   });
@@ -60,15 +54,14 @@ function _list_queues_array(scope, req, res) {
   var tasks = {};
 
 
-  _.forEach(queues, function (q, qname) {
-    tasks[qname] = function (cb) {
-      q.status(cb)
-    }
+  _.forEach(queues, (q, qname) => {
+    tasks[qname] = cb => q.status(cb);
   });
 
-  async.parallel(tasks, function (err, r) {
+  async.parallel(tasks, (err, r) => {
     var final_res = [];
-    _.forEach(r, function (q, qname) {
+
+    _.forEach(r, (q, qname) => {
       q.id = qname;
       final_res.push(q);
     });
@@ -84,11 +77,7 @@ function _list_queues_array(scope, req, res) {
 function _list_namespaces(scope, req, res) {
   var namespaces = scope.namespaces();
   var ret = [];
-
-  _.forEach (namespaces, function (v, k) {
-    ret.push (k);
-  });
-    
+  _.forEach (namespaces, (v, k) => ret.push (k));
   res.send (ret);
 }
 
@@ -107,9 +96,7 @@ function _list_queues(scope, req, res) {
 
 //////////////////////////////////////////////////////////////////////////////////////
 function _reload_list_queues(scope, req, res) {
-  scope.refresh(function () {
-    _list_queues(scope, req, res);
-  });
+  scope.refresh(() => _list_queues(scope, req, res));
 }
 
 
@@ -131,14 +118,10 @@ function get_router(config, scope) {
     var tasks = {};
 
     for (let entry of req.__namespace.q_repo) {
-      tasks[entry[0]] = function (cb) {
-        entry[1].status(cb)
-      };
+      tasks[entry[0]] = cb => entry[1].status(cb);
     }
 
-    async.parallel(tasks, function (err, r) {
-      res.send(r);
-    });
+    async.parallel(tasks, (err, r) => res.send(r));
   }
 
 
@@ -146,7 +129,7 @@ function get_router(config, scope) {
   function _get_queue_status(req, res) {
     var q = req.__q;
 
-    q.status(function (err, r) {
+    q.status((err, r) => {
       if (err) res.status(500).send(err);
       res.send(r);
     });
@@ -165,7 +148,7 @@ function get_router(config, scope) {
     var q = req.__q;
     var opts = req.query || {};
 
-    q.push(req.body || req.text, opts, function (err, id) {
+    q.push(req.body || req.text, opts, (err, id) => {
       if (err) {
         res.status(500).send(err);
       } else {
@@ -195,7 +178,7 @@ function get_router(config, scope) {
       opts.reserve = true;
     }
 
-    var tid = q.pop(cid, opts, function (err, result) {
+    var tid = q.pop(cid, opts, (err, result) => {
       if (err) {
         if (err.timeout) {
           res.status(504);
@@ -214,14 +197,14 @@ function get_router(config, scope) {
     });
 
     // check if (res.finished)
-    res.on('close', function () {
+    res.on('close', () => {
       if (!res.finished) {
         //        console.log ('cancelling ' + tid);
         q.cancel(tid);
       }
     });
 
-    res.on('aborted', function () {
+    res.on('aborted', () => {
       if (!res.finished) {
         //        console.log ('cancelling ' + tid);
         q.cancel(tid);
@@ -244,7 +227,7 @@ function get_router(config, scope) {
   function _commit(req, res) {
     var q = req.__q;
 
-    q.ok(req.params.id, function (err, ret) {
+    q.ok(req.params.id, (err, ret) => {
       if (err) {
         return res.status(500).send(err);
       }
@@ -263,9 +246,9 @@ function get_router(config, scope) {
     var q = req.__q;
     var delay_str = (req.query || {}).delay;
     var delay = delay_str ? parseInt (delay_str) : 0;
-    var next_t = new Date().getTime () + delay; 
+    var next_t = new Date().getTime () + delay;
 
-    q.ko(req.params.id, next_t, function (err, ret) {
+    q.ko(req.params.id, next_t, (err, ret) => {
       if (err) {
         return res.status(500).send(err);
       }
@@ -281,8 +264,8 @@ function get_router(config, scope) {
 
   var router = express.Router();
 
-  
-  router.param('namespace', function (req, res, next, namespace) {
+
+  router.param('namespace', (req, res, next, namespace) => {
     var __namespace = scope.namespace(namespace);
     if (!__namespace) {
       res.status(404).send('no such queue namespace [' + namespace + ']');
@@ -292,7 +275,7 @@ function get_router(config, scope) {
     }
   });
 
-  router.param('q', function (req, res, next, q) {
+  router.param('q', (req, res, next, q) => {
     var namespace = req.__namespace;
 
     if (!namespace.q_repo.has(q)) {
@@ -303,9 +286,10 @@ function get_router(config, scope) {
     next();
   });
 
-  router.get ('/', _get_queues);
-  router.get ('/:namespace', _get_queues_of_namespace);
-  router.get ('/:namespace/:q/status', _get_queue_status);
+
+  router.get ('/',                        _get_queues);
+  router.get ('/:namespace',              _get_queues_of_namespace);
+  router.get ('/:namespace/:q/status',    _get_queue_status);
   router.get ('/:namespace/:q/consumers', _get_queue_consumers);
 
   router.put  ('/:namespace/:q', _push_in_queue);
@@ -314,7 +298,7 @@ function get_router(config, scope) {
 
   router.delete ('/:namespace/:q/consumer/:tid', _cancel_pop);
 
-  router.patch ('/:namespace/:q/commit/:id', _commit);
+  router.patch ('/:namespace/:q/commit/:id',   _commit);
   router.patch ('/:namespace/:q/rollback/:id', _rollback);
 
   return router;

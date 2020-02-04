@@ -5,7 +5,7 @@ var Log =   require ('winston-log-space');
 
 var cconf = new CC();
 
-var defaults = { 
+var defaults = {
   http: {
     port: 3444,
     users: {}
@@ -22,7 +22,7 @@ cconf
   .obj  (defaults)
   .env  ({prefix: 'KS_'})
   .args ()
-  .file (__dirname + '/etc/config.js',       {ignore_missing: true})
+  .file (__dirname + '/etc/config.js',                        {ignore_missing: true})
   .file (__dirname + '/etc/config-{NODE_ENV:development}.js', {ignore_missing: true})
   .env  ({prefix: 'KS_'})
   .args ()
@@ -31,12 +31,9 @@ cconf
       console.error (err);
       process.exit (1);
     }
-    
-    Log.init (function (err) {
-      if (err) {
-        console.error (err);
-        return;
-      }
+
+    Log.init (err => {
+      if (err) return console.error (err);
 
       var logger = Log.logger ('main');
 
@@ -48,35 +45,31 @@ cconf
       context.scope = new Scope ();
 
       async.series ([
-        function (cb) {
-          context.scope.init (config, cb);
-        },
-        function (cb) {
+        cb => context.scope.init (config, cb),
+        cb => {
           // init stomp server
           context.stomp_server = new Stomp (config, context.scope);
           context.stomp_server.run (cb);
         },
-        function (cb) {
+        cb => {
           // init http/rest server
           var extra_init = function (app) {
-            app.get ('/stomp/status', function (req, res){
-              res.send (context.stomp_server.status());
-            });
+            app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status()));
           };
-    
-          BaseApp (config, context.scope, extra_init, function (err, app) {
+
+          BaseApp (config, context.scope, extra_init, (err, app) => {
             if (err) return cb (err);
-        
+
             context.server = require('http-shutdown')(http.createServer (app));
             var port = config.http.port || 3444;
-      
-            context.server.listen (port, function () {
+
+            context.server.listen (port, () => {
               logger.info ('REST server listening at port %s', port);
               cb ();
             });
           });
         }
-      ], function (err) {
+      ], err => {
         if (err) {
           logger.error (err);
           process.exit (1);
@@ -86,11 +79,11 @@ cconf
       function __shutdown () {
         logger.info (`shutdown init`);
         async.parallel ([
-          (cb) => context.scope.drain (cb),
-          (cb) => context.server.shutdown (cb),
-          (cb) => context.stomp_server.end (cb),
-          (cb) => context.scope.end (cb)
-        ], (err) => {
+          cb => context.scope.drain (cb),
+          cb => context.server.shutdown (cb),
+          cb => context.stomp_server.end (cb),
+          cb => context.scope.end (cb)
+        ], err => {
           logger.info (`shutdown done`)
         })
       }

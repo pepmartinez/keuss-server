@@ -1,5 +1,3 @@
-'use strict';
-
 var net =    require ('net');
 var uuid =   require ('uuid');
 var util =   require ('util');
@@ -52,42 +50,36 @@ class QConsumer {
 
   ///////////////////////////////////////////
   _a_single_iteration (pcid) {
-    var self = this;
-
     if (this._window_used () >= this._wsize) {
       logger.verbose ('QConsumer %s: window full (max %d, used %d), waiting for release' , pcid, this._wsize, this._window_used ());
-
-      this._waiting_for_window.push (function () {
-        self._a_single_iteration (pcid);
-      });
-
+      this._waiting_for_window.push (() => this._a_single_iteration (pcid));
       return;
     }
 
-    var tid = this._q.pop (pcid, this._pop_opts, function (err, res) {
-      delete self._pending_tids[tid];
+    var tid = this._q.pop (pcid, this._pop_opts, (err, res) => {
+      delete this._pending_tids[tid];
 
       // TODO manage error?
 
       if (err == 'cancel') {
         // consumer cancelled, end loop
-        logger.debug ('QConsumer %s: cancelled while pop from queue %s, tid is %s', pcid, self._q.name(), tid);
+        logger.debug ('QConsumer %s: cancelled while pop from queue %s, tid is %s', pcid, this._q.name(), tid);
         return;
       }
 
-      logger.debug ('QConsumer %s: return from pop from queue %s, tid is %s', pcid, self._q.name(), tid);
+      logger.debug ('QConsumer %s: return from pop from queue %s, tid is %s', pcid, this._q.name(), tid);
 
-      if (self._pop_opts.reserve && res) {
-        self._pending_acks[res._id] = new Date();
+      if (this._pop_opts.reserve && res) {
+        this._pending_acks[res._id] = new Date();
         logger.debug ('QConsumer %s: new pending ack [%s]', pcid, res._id);
       }
       else {
-        logger.debug ('QConsumer %s: popped: window is -> (max %d, used %d)', pcid, self._wsize, self._window_used ());
-        self._window_release ();
+        logger.debug ('QConsumer %s: popped: window is -> (max %d, used %d)', pcid, this._wsize, this._window_used ());
+        this._window_release ();
       }
 
-      self._cb (err, res);
-      setImmediate (function () {self._a_single_iteration (pcid);});
+      this._cb (err, res);
+      setImmediate (() => this._a_single_iteration (pcid));
     });
 
     this._pending_tids[tid] = new Date();
@@ -106,25 +98,23 @@ class QConsumer {
 
   ///////////////////////////////////////////
   stop () {
-    var self = this;
-
     // rollback pending acks
     var next_t = new Date().getTime ();
-    _.forEach (this._pending_acks, function (val, id) {
-      self._q.ko (id, next_t, function (err) {
+    _.forEach (this._pending_acks, (val, id) => {
+      this._q.ko (id, next_t, err => {
         if (err) {
-          logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', self._cid, id, '' + err);
+          logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', this._cid, id, '' + err);
         }
         else {
-          logger.verbose ('QConsumer %s: rolled back pending ack [%s]', self._cid, id);
+          logger.verbose ('QConsumer %s: rolled back pending ack [%s]', this._cid, id);
         }
       });
     });
 
     // cancel pending tids
-    _.forEach (this._pending_tids, function (val, tid) {
-      self._q.cancel (tid);
-      logger.verbose ('QConsumer %s: cancelled pending TID [%s]', self._cid, tid);
+    _.forEach (this._pending_tids, (val, tid) => {
+      this._q.cancel (tid);
+      logger.verbose ('QConsumer %s: cancelled pending TID [%s]', this._cid, tid);
     });
 
     logger.verbose ('QConsumer %s: stopped', this._cid);
@@ -134,12 +124,10 @@ class QConsumer {
   ack (id, cb) {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
-    var self = this;
-
-    this._q.ok (id, function (err) {
-      delete self._pending_acks[id];
-      logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', self._cid, self._wsize, self._window_used ());
-      self._window_release ();
+    this._q.ok (id, err => {
+      delete this._pending_acks[id];
+      logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
+      this._window_release ();
       if (cb) cb (err);
     });
   }
@@ -148,14 +136,12 @@ class QConsumer {
   nack (id, next_t, cb) {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
-    var self = this;
-
     logger.debug ('QConsumer %s: nacking id [%s], next_t is %s', this._cid, id, new Date (next_t));
 
-    this._q.ko (id, next_t, function (err) {
-      delete self._pending_acks[id];
-      logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d)', self._cid, self._wsize, self._window_used ());
-      self._window_release ();
+    this._q.ko (id, next_t, err => {
+      delete this._pending_acks[id];
+      logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
+      this._window_release ();
       if (cb) cb (err);
     });
   }
@@ -188,21 +174,16 @@ class STOMP {
     //   subscrs: {}
     // }
     this._sessions = {};
-
-    var self = this;
-    this._ka_timer = setInterval (function () {self._keep_alive ()}, this._config.keepalive_interval || 1000);
+    this._ka_timer = setInterval (() => this._keep_alive (), this._config.keepalive_interval || 1000);
   }
 
 
   ///////////////////////////////////////////////////////////////////////////
   run (cb) {
-    var self = this;
-    this._server = net.createServer (function(socket) {
-      self._server_new_connection (socket);
-    });
+    this._server = net.createServer (socket => this._server_new_connection (socket));
 
     var port = this._config.port || 61613;
-    this._server.listen (port, function (err) {
+    this._server.listen (port, err => {
       if (err) return cb (err);
       logger.info ('STOMP server listening on port %d', port);
       cb ();
@@ -218,7 +199,7 @@ class STOMP {
 
     this._server.close (() => {
       // end all sessions
-      _.forEach (this._sessions, function (v, k) {
+      _.forEach (this._sessions, (v, k) => {
         logger.info ('STOMP: closing session %s', k);
         v.s = 'ended';
         v.sess.destroy();
@@ -235,10 +216,10 @@ class STOMP {
   status () {
     var res = {};
 
-    _.forEach (this._sessions, function (s, id) {
+    _.forEach (this._sessions, (s, id) => {
       var subscrs_status = {};
 
-      _.forEach (s.subscrs, function (subscr, subscr_id) {
+      _.forEach (s.subscrs, (subscr, subscr_id) => {
         subscrs_status[subscr_id] = {
           destination: subscr.destination,
           qc: subscr.qc.status()
@@ -260,9 +241,7 @@ class STOMP {
   _keep_alive () {
     logger.debug ('keepalive!');
 
-    var self = this;
-
-    _.forEach (this._sessions, function (s, id) {
+    _.forEach (this._sessions, (s, id) => {
       var rdelta_t = (new Date ().getTime()) - (s.sess.last_read().getTime ());
       var wdelta_t = (new Date ().getTime()) - (s.sess.last_write().getTime ());
 
@@ -277,8 +256,8 @@ class STOMP {
       else {
         // do we need to send ping?
         if (
-          (s.heartbeat[1] > self._config.keepalive_interval) &&
-          (wdelta_t > (s.heartbeat[1] - self._config.keepalive_interval))
+          (s.heartbeat[1] > this._config.keepalive_interval) &&
+          (wdelta_t > (s.heartbeat[1] - this._config.keepalive_interval))
         ) {
           logger.verbose ('keepalive@%s: sending ping', id);
           s.sess.ping ();
@@ -291,7 +270,6 @@ class STOMP {
   ///////////////////////////////////////////////////////////////////////////
   _server_new_connection (socket) {
     var id = uuid.v4();
-    var self = this;
 
     socket.on ('end', () => logger.verbose ('STOMP socket ended (session %s)', id));
 
@@ -300,18 +278,18 @@ class STOMP {
       socket.destroy();
     });
 
-    socket.on ('close', function () {
+    socket.on ('close', () => {
       logger.verbose ('STOMP socket closed (session %s)', id);
-      var sess = self._sessions[id];
+      var sess = this._sessions[id];
 
       if (sess) {
         // stop subscriptions' qconsumers
-        _.forEach (sess.subscrs, function (subscr, subscr_id) {
+        _.forEach (sess.subscrs, (subscr, subscr_id) => {
           logger.verbose ('STOMP session %s closed, ending subscription %s on %s', id, subscr_id, subscr.destination);
           subscr.qc.stop ();
         });
 
-        delete self._sessions[id];
+        delete this._sessions[id];
 
         logger.info ('STOMP session %s closed', id);
       }
@@ -322,10 +300,10 @@ class STOMP {
 
     var ss = new SF.StompSession(socket);
 
-    ss.on ('frame', function (frm) {
+    ss.on ('frame', frm => {
       logger.debug ('[STOMP session %s] got frame %j', id, frm, {});
 
-      var sess = self._sessions[id];
+      var sess = this._sessions[id];
 
       if (!sess) {
         logger.warn ('[STOMP session %s] got frame %j on nonexisting session, ignoring', id, frm, {});
@@ -337,7 +315,7 @@ class STOMP {
         return;
       }
 
-      self['_frame_' + frm.command ()] (sess, frm);
+      this['_frame_' + frm.command ()] (sess, frm);
     });
 
     this._sessions[id] = {
@@ -387,7 +365,7 @@ class STOMP {
     sess.s = 'ended';
     sess.sess.destroy ();
 
-    _.forEach (sess.subscrs, function (subscr, subscr_id) {
+    _.forEach (sess.subscrs, (subscr, subscr_id) => {
       logger.verbose ('STOMP session produced an error, ending subscription %s on %s', subscr_id, subscr.destination);
       subscr.qc.stop ();
     });
@@ -510,7 +488,7 @@ class STOMP {
     var q = this._get_queue (frm.destination);
     if (_.isString (q)) return self._error_in_session (sess, frm, q);
 
-    q.push (body, opts, function (err, id) {
+    q.push (body, opts, (err, id) => {
       if (err) {
         self._error_in_session (sess, frm, err);
       } else {
@@ -522,7 +500,6 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_SUBSCRIBE (sess, frm) {
-    var self = this;
     logger.debug ('%s@stomp: got SUBSCRIBE, %j', sess.id, frm);
 
     var subscribe_opts = {};
@@ -552,7 +529,7 @@ class STOMP {
     if (frm.header('x-parallel')) subscribe_opts.parallel = (parseInt (frm.header('x-parallel')) || 1);
     if (frm.header('x-wsize'))    subscribe_opts.wsize =    (parseInt (frm.header('x-wsize'))    || 1000);
 
-    var qc = new QConsumer (q, subscribe_opts, function (err, item) {
+    var qc = new QConsumer (q, subscribe_opts, (err, item) => {
       logger.debug ('got elem for subscr: %j - %j', err, item, {});
 
       if (sess.s == 'ended') {
@@ -565,7 +542,7 @@ class STOMP {
 
       // pass error if no payload
       if ((!item) || (!item.payload)) {
-        return self._error_in_session (sess, frm, util.format ('subscription %s got an empty message. Queue may not support ack level "client-individual"', frm.id));
+        return this._error_in_session (sess, frm, util.format ('subscription %s got an empty message. Queue may not support ack level "client-individual"', frm.id));
       }
 
       var m_frm = new SF.Frame ();
@@ -578,7 +555,7 @@ class STOMP {
       m_frm.header ('x-tries', item.tries + '');
       m_frm.header ('content-type', 'application/json ; charset=utf8');
 
-      self._write_frm (sess, m_frm);
+      this._write_frm (sess, m_frm);
     });
 
     qc.start ();
@@ -625,9 +602,8 @@ class STOMP {
 
     if (!subscr) return this._error_in_session (sess, frm, util.format ('nonexistent subscription %s', subscr_id));
 
-    var self = this;
-    var ack = subscr.qc.ack (msg_id, function (err) {
-      if (err) return self._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
+    var ack = subscr.qc.ack (msg_id, err => {
+      if (err) return this._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
       logger.verbose ('%s@stomp: acked %s', sess.id, frm.id);
     });
   }
@@ -658,10 +634,8 @@ class STOMP {
       next_t = new Date().getTime () + x_delta_t;
     }
 
-    var self = this;
-
-    var ack = subscr.qc.nack (msg_id, next_t, function (err) {
-      if (err) return self._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
+    var ack = subscr.qc.nack (msg_id, next_t, err => {
+      if (err) return this._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
       logger.verbose ('%s@stomp: nacked %s', sess.id, frm.id);
     });
   }

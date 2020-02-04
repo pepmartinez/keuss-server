@@ -1,5 +1,3 @@
-'use strict';
-
 var async = require ('async');
 var _ =     require ('lodash');
 var util =  require ('util');
@@ -25,8 +23,8 @@ class Scope {
   namespace (t) {
     return this._q_namespaces[t];
   }
-  
-  
+
+
   //////////////////////////////
   _init_stats_providers (config, cb) {
     _.forEach (config.stats, (v, k) => {
@@ -42,8 +40,8 @@ class Scope {
 
     cb ();
   }
-  
-  
+
+
   //////////////////////////////
   _init_signal_providers (config, cb) {
     _.forEach (config.signallers, (v, k) => {
@@ -64,13 +62,13 @@ class Scope {
   //////////////////////////////
   _init_backends (config, cb) {
     var tasks = [];
-    
+
     _.forEach (config.namespaces, (namespace, namespace_name) => {
       if (namespace.disable) {
         logger.info ('queue namespace [%s] disabled, not loading', namespace_name);
         return;
       }
-    
+
       tasks.push (cb => {
         var bk_module = require ('keuss/backends/' + namespace.factory);
         var stats_provider = this._stats_providers [namespace.config.stats || ''];
@@ -108,18 +106,17 @@ class Scope {
     });
 
     tasks.push (cb => this.refresh (cb));
-    
+
     async.series (tasks, cb);
   }
 
 
   //////////////////////////////
   init (config, cb) {
-    var self = this;
     async.series ([
-      function (cb) {self._init_stats_providers  (config, cb);},
-      function (cb) {self._init_signal_providers (config, cb);},
-      function (cb) {self._init_backends         (config, cb);}
+      cb => this._init_stats_providers  (config, cb),
+      cb => this._init_signal_providers (config, cb),
+      cb => this._init_backends         (config, cb)
     ], cb);
   }
 
@@ -168,18 +165,17 @@ class Scope {
   //////////////////////////////
   refresh (cb) {
     var tasks = [];
-    var self = this;
-    
-    _.forEach (this._q_namespaces, function (ns_obj, ns_name) {
-      tasks.push (function (cb) {
+
+    _.forEach (this._q_namespaces, (ns_obj, ns_name) => {
+      tasks.push (cb => {
         var bk = ns_obj.factory;
-        
-        bk.recreate_topology (function (err, ql) {
+
+        bk.recreate_topology ((err, ql) => {
           if (err) return cb (err);
 
           ns_obj.q_repo.clear ();
 
-          _.forEach (ql, function (v, k) {
+          _.forEach (ql, (v, k) => {
             ns_obj.q_repo.set (k, v);
             logger.info ('%s: added queue [%s]', ns_name, k);
           });
@@ -188,28 +184,24 @@ class Scope {
         });
       });
     });
-    
+
     async.series (tasks, cb);
   }
-  
-  
+
+
   //////////////////////////////
   queues (ns) {
     var ret = {};
 
     if (!ns) {
-      _.forEach (this._q_namespaces, function (qns, ns) {
-        qns.q_repo.forEach (function (q_obj, q_name) {
-          ret [q_name + '@' + ns] = q_obj;
-        });
+      _.forEach (this._q_namespaces, (qns, ns) => {
+        qns.q_repo.forEach ((q_obj, q_name) => ret [q_name + '@' + ns] = q_obj);
       });
     }
     else {
-      _.forEach (this._q_namespaces[ns], function (q_obj, q_name) {
-        ret [q_name] = q_obj;
-      });
+      _.forEach (this._q_namespaces[ns], (q_obj, q_name) => ret [q_name] = q_obj);
     }
-    
+
     return ret;
   }
 };
