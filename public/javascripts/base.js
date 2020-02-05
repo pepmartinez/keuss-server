@@ -1,38 +1,59 @@
 
 var qtable = null;
 
+function _render_topology (data, type, full, meta) {
+  if (!data) return '-';
+  var res = JSON.stringify (data);
+  return '<div align="center">' + (res == '{}' ? '-' : JSON.stringify (data)) + '</div>';
+}
+
+function _render_num_dash (data, type, full, meta) {
+  return '<div align="right">' + (data || '-') + '</div>';
+}
+
+function _render_num_zero (data, type, full, meta) {
+  return '<div align="right">' + (data || '0') + '</div>';
+}
+
+function _render_time_delta (data, type, full, meta) {
+  return '<div align="center">' + (data ? getTimeDelta (data) : '-') + '</div>';
+}
+
+function _render_paused (data, type, full, meta) {
+  return '<div align="center">' + (data ? '<b>PAUSED</b>' : '-') + '</div>';
+}
 
 function getTimeDelta (ts) {
   if ((ts == null) || (ts == undefined)) {
     return '-';
   }
-  
+
   var delta = new Date (ts).getTime () - new Date ().getTime ();
   var positive = true;
-  
+
   if (delta < 0) {
     positive = false;
     delta = -delta;
   }
-  
+
   var dt_d = Math.floor (delta / (24*60*60*1000));
   delta = delta - (dt_d * 24*60*60*1000);
-  
+
   var dt_h = Math.floor (delta / (60*60*1000));
   delta = delta - (dt_h * 60*60*1000);
-  
+
   var dt_m = Math.floor (delta / (60*1000));
   delta = delta - (dt_m * 60*1000);
-  
+
   var dt_s = delta / 1000;
-  
+
   var res = positive ? '' : '- ';
-  
+
   if (dt_d > 0) res = res + dt_d + 'd ';
   if (dt_h > 0) res = res + dt_h + 'h ';
   if (dt_m > 0) res = res + dt_m + 'm ';
   res = res + dt_s + 's';
-  
+
   return res;
 }
 
@@ -53,15 +74,15 @@ function reload (){
 $(function() {
 /////////////////////////////////////////
   $.fn.dataTable.ext.errMode = 'none';
-  
+
   $('#refresh-btn').click(function(eventObject) {
     refresh ();
-  });  
-  
+  });
+
   $('#reload-btn').click(function(eventObject) {
     reload ();
   });
-  
+
   $('#qtable')
   .on ('error.dt', function ( e, settings, techNote, message ) {
     $('#error-text').html (message);
@@ -69,11 +90,11 @@ $(function() {
   })
   .on ('xhr.dt', function (e, settings, json, xhr ) {
     if (xhr.status != 200) {
-      var xhr_txt = 'readyState: ' + xhr.readyState + 
-      ' responseJSON: ' + xhr.responseJSON + 
+      var xhr_txt = 'readyState: ' + xhr.readyState +
+      ' responseJSON: ' + xhr.responseJSON +
       ' status:  ' + xhr.status +
       ' statusText: ' + xhr.statusText;
-      
+
       $('#error-text').html ('Error while obtaining data from server. Response is [' + xhr_txt + ']');
       $('#error-panel').show ();
     }
@@ -82,34 +103,30 @@ $(function() {
     $('#error-panel').hide ();
     $('#error-text').html = '';
   });
-  
+
   qtable = $('#qtable').DataTable({
     processing: true,
     select: 'single',
     ajax: '/q?array=1',
     columns: [
       {data: 'id'},
-      {data: 'topology', render: function ( data, type, full, meta ) {
-        if (!data) return '-';
-        return JSON.stringify (data);
-      }},
-      {data: 'stats.put', defaultContent: '-'},
-      {data: 'stats.get', defaultContent: '-'},
-      {data: 'size',      defaultContent: '0'},
-      {data: 'totalSize', defaultContent: '0'},
-      {data: 'schedSize', defaultContent: '0'},
-      {data: 'next_mature_t', render: function ( data, type, full, meta ) {
-        return data ? getTimeDelta (data) : '-';
-      }},
+      {data: 'topology',      render: _render_topology},
+      {data: 'stats.put',     render: _render_num_dash},
+      {data: 'stats.get',     render: _render_num_dash},
+      {data: 'size',          render: _render_num_zero},
+      {data: 'totalSize',     render: _render_num_zero},
+      {data: 'schedSize',     render: _render_num_zero},
+      {data: 'next_mature_t', render: _render_time_delta},
+      {data: 'paused',        render: _render_paused},
     ]
   });
-  
+
   qtable.on ('select', function ( e, dt, type, indexes ) {
     console.log ('select: ',e, dt, type, indexes );
-    
+
     if ( type === 'row' ) {
       //      var data = table.rows( indexes ).data().pluck( 'id' );
-      
+
       // do something with the ID of the selected items
     }
   });
