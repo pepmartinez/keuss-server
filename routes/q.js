@@ -1,6 +1,6 @@
 var express = require('express');
-var async = require('async');
-var _ = require('lodash');
+var async =   require('async');
+var _ =       require('lodash');
 
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +144,17 @@ function get_router(config, scope) {
 
 
   //////////////////////////////////////////////////////////////////////////////////////
+  function _get_queue_paused(req, res) {
+    var q = req.__q;
+
+    q.paused((err, r) => {
+      if (err) res.status(500).send(err);
+      res.send(r);
+    });
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////
   function _push_in_queue(req, res) {
     var q = req.__q;
     var opts = req.query || {};
@@ -262,6 +273,22 @@ function get_router(config, scope) {
   }
 
 
+  //////////////////////////////////////////////////////////////////////////////////////
+  function _pause(req, res) {
+    var q = req.__q;
+    q.pause (true);
+    res.status(201).end();
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////
+  function _resume(req, res) {
+    var q = req.__q;
+    q.pause (false);
+    res.status(201).end();
+  }
+
+
   var router = express.Router();
 
 
@@ -291,6 +318,7 @@ function get_router(config, scope) {
   router.get ('/:namespace',              _get_queues_of_namespace);
   router.get ('/:namespace/:q/status',    _get_queue_status);
   router.get ('/:namespace/:q/consumers', _get_queue_consumers);
+  router.get ('/:namespace/:q/paused',    _get_queue_paused);
 
   router.put  ('/:namespace/:q', _push_in_queue);
   router.post ('/:namespace/:q', _push_in_queue);
@@ -300,6 +328,8 @@ function get_router(config, scope) {
 
   router.patch ('/:namespace/:q/commit/:id',   _commit);
   router.patch ('/:namespace/:q/rollback/:id', _rollback);
+  router.patch ('/:namespace/:q/pause',        _pause);
+  router.patch ('/:namespace/:q/resume',       _resume);
 
   return router;
 }
