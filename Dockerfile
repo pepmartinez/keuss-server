@@ -1,5 +1,5 @@
-# docker build -t pepmartinez/keuss-server:1.3.6 .
-# docker push pepmartinez/keuss-server:1.3.6
+# docker build -t pepmartinez/keuss-server:1.3.7 .
+# docker push pepmartinez/keuss-server:1.3.7
 
 FROM node:carbon
 

@@ -7,6 +7,13 @@ function _render_topology (data, type, full, meta) {
   return '<div align="center">' + (res == '{}' ? '-' : JSON.stringify (data)) + '</div>';
 }
 
+function _render_num_null (data, type, full, meta) {
+  var v = data;
+  if (v === null) v = '(n/a)';
+  if (v === undefined) v = '(n/a)';
+  return '<div align="right">' + v + '</div>';
+}
+
 function _render_num_dash (data, type, full, meta) {
   return '<div align="right">' + (data || '-') + '</div>';
 }
@@ -116,6 +123,7 @@ $(function() {
       {data: 'size',          render: _render_num_zero},
       {data: 'totalSize',     render: _render_num_zero},
       {data: 'schedSize',     render: _render_num_zero},
+      {data: 'resvSize',      render: _render_num_null},
       {data: 'next_mature_t', render: _render_time_delta},
       {data: 'paused',        render: _render_paused},
     ]
