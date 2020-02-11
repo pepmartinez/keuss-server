@@ -163,15 +163,15 @@ _.forEach([
         var scope = new Scope ();
         scope.init (config, err  => {
           if (err) return cb (err);
-          stomp_server = new Stomp (config, scope);
+          stomp_server = new Stomp (config, {scope});
           stomp_server.run (cb);
         });
       }
     ], done));
 
-    after(done => stomp_server.end (() => {
-      setTimeout (done, 1000);
-    }));
+    after(done => {
+      stomp_server.end (() => setTimeout (done, 1000));
+    });
 
     it('does push/pop ok, ack to auto', function (done) {
       var q = '/q/' + namespace + '/stomp_test_1';

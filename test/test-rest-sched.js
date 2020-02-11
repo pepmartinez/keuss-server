@@ -175,7 +175,7 @@ _.forEach([
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        BaseApp(config, scope, function () {}, function (err, app) {
+        BaseApp(config, {scope}, function () {}, function (err, app) {
           theApp = app;
           done(err);
         });
@@ -183,7 +183,9 @@ _.forEach([
     });
 
     after(function (done) {
-      setTimeout (done, 1000);
+      clearInterval(theApp.locals.Prometheus.collectDefaultMetrics());
+      theApp.locals.Prometheus.register.clear();
+      done();
     });
 
     it('does push/pop ok', function (done) {

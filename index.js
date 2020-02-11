@@ -18,6 +18,35 @@ var defaults = {
   namespaces: {}
 };
 
+
+function _create_metric (context, id, help) {
+  let the_metric = context.promster.register.getSingleMetric('keuss_' + id);
+
+  if (the_metric) {
+    context.metrics[id] = the_metric;
+  }
+  else {
+    context.metrics[id] = new context.promster.Counter ({
+      name: 'keuss_' + id,
+      help: help,
+      labelNames: ['proto', 'ns', 'q', 'status']
+    });
+  }
+}
+
+function _create_metrics (context, cb) {
+  // create extra metrics
+  context.metrics = {};
+  _create_metric (context, 'q_push', 'counters on queue insertion through server');
+  _create_metric (context, 'q_pop',  'counters on queue pop through server');
+  _create_metric (context, 'q_reserve', 'counters on queue reserve through server');
+  _create_metric (context, 'q_commit', 'counters on queue commit through server');
+  _create_metric (context, 'q_rollback', 'counters on queue rollback through server');
+
+  cb ();
+}
+
+
 cconf
   .obj  (defaults)
   .env  ({prefix: 'KS_'})
@@ -46,28 +75,33 @@ cconf
 
       async.series ([
         cb => context.scope.init (config, cb),
+        cb => BaseApp (config, context, null, (err, app) => {
+          if (err) return cb (err);
+          context.app = app;
+          context.promster = context.app.locals.Prometheus;
+          cb ();
+        }),
+        cb => _create_metrics (context, cb),
         cb => {
           // init stomp server
-          context.stomp_server = new Stomp (config, context.scope);
+          context.stomp_server = new Stomp (config, context);
+          context.app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status()));
           context.stomp_server.run (cb);
         },
         cb => {
           // init http/rest server
-          var extra_init = function (app) {
-            app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status()));
-          };
+          context.server = require('http-shutdown')(http.createServer (context.app));
+          var port = config.http.port || 3444;
 
-          BaseApp (config, context.scope, extra_init, (err, app) => {
+          context.server.listen (port, err => {
             if (err) return cb (err);
-
-            context.server = require('http-shutdown')(http.createServer (app));
-            var port = config.http.port || 3444;
-
-            context.server.listen (port, () => {
-              logger.info ('REST server listening at port %s', port);
-              cb ();
-            });
+            logger.info ('REST server listening at port %s', port);
+            cb ();
           });
+        },
+        cb => {
+          require ('@promster/express').signalIsUp();
+          cb ();
         }
       ], err => {
         if (err) {
@@ -78,13 +112,22 @@ cconf
 
       function __shutdown () {
         logger.info (`shutdown init`);
+
+        require ('@promster/express').signalIsNotUp();
+
         async.parallel ([
           cb => context.scope.drain (cb),
           cb => context.server.shutdown (cb),
           cb => context.stomp_server.end (cb),
-          cb => context.scope.end (cb)
+          cb => context.scope.end (cb),
+          cb => {
+            if (context.promster) {
+              clearInterval(context.promster.collectDefaultMetrics());
+              context.promster.register.clear();
+            }
+          }
         ], err => {
-          logger.info (`shutdown done`)
+          logger.info (`shutdown done`);
         })
       }
 

@@ -162,15 +162,13 @@ _.forEach([
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        stomp_server = new Stomp (config, scope);
+        stomp_server = new Stomp (config, {scope});
         stomp_server.run (done);
       });
     });
 
-    after(function (done) {
-      stomp_server.end (function () {
-        setTimeout (done, 500);
-      });
+    after(done => {
+      stomp_server.end (() => setTimeout (done, 1000));
     });
 
     it('does push/reserve/commit ok', function (done) {

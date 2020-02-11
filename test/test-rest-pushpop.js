@@ -190,13 +190,13 @@ _.forEach([
   'mongo_pipeline',
   'bucket_mongo',
   'bucket_mongo_safe'
-], function (namespace) { 
+], function (namespace) {
   describe('REST push/pop operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        BaseApp(config, scope, function () {}, function (err, app) {
+        BaseApp(config, {scope}, function () {}, function (err, app) {
           theApp = app;
           done(err);
         });
@@ -204,6 +204,8 @@ _.forEach([
     });
 
     after(function (done) {
+      clearInterval(theApp.locals.Prometheus.collectDefaultMetrics());
+      theApp.locals.Prometheus.register.clear();
       done();
     });
 

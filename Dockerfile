@@ -1,7 +1,7 @@
-# docker build -t pepmartinez/keuss-server:1.3.7 .
-# docker push pepmartinez/keuss-server:1.3.7
+# docker build -t pepmartinez/keuss-server:1.4.0 .
+# docker push pepmartinez/keuss-server:1.4.0
 
-FROM node:carbon
+FROM node:12.15.0-alpine
 
 WORKDIR /usr/src/app
 COPY package*.json ./

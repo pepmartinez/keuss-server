@@ -3,16 +3,32 @@ var bodyParser = require ('body-parser');
 var path =       require ('path');
 var basicAuth =  require ('express-basic-auth');
 var Log =        require ('winston-log-space');
+var promster =   require ('@promster/express');
 
 var routes_q =   require ('./routes/q');
 
 
-function app (config, scope, extra_init, cb) {
+function app (config, context, extra_init, cb) {
   var app = express ();
   var logger = Log.logger ('app');
 
   app.set ('views', path.join (__dirname, 'views'));
   app.set ('view engine', 'pug');
+
+  app.use (promster.createMiddleware({
+    app: app,
+    options: {
+      normalizePath: (full_path, {req, res}) => {
+        if (req.route) return path.join (req.baseUrl, req.route.path);
+        return full_path.split ('?')[0];
+      }
+    }
+  }));
+
+  app.use('/metrics', (req, res) => {
+    res.setHeader ('Content-Type', promster.getContentType());
+    res.end (promster.getSummary());
+  });
 
   app.use(basicAuth({
     users: (config.http && config.http.users) || { 'test': 'test' },
@@ -24,7 +40,7 @@ function app (config, scope, extra_init, cb) {
   app.use (bodyParser.urlencoded ({extended: true}));
   app.use (bodyParser.json ());
 
-  app.use ('/q', routes_q (config, scope));
+  app.use ('/q', routes_q (config, context));
 
   // main page
   app.get ('/', (req, res) => res.render ('index', {title: 'Job Queues'}));

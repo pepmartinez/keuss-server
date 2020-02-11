@@ -162,9 +162,10 @@ class QConsumer {
 
 class STOMP {
   ///////////////////////////////////////////
-  constructor (config, scope) {
+  constructor (config, context) {
     this._config = config.stomp || {};
-    this._scope = scope;
+    this._scope = context.scope;
+    this._metrics = context.metrics;
 
     // active sessions. entries are:
     // {

@@ -101,7 +101,9 @@ function _reload_list_queues(scope, req, res) {
 
 
 //////////////////////////////////////////////////////////////////////////////////////
-function get_router(config, scope) {
+function get_router(config, context) {
+  var scope = context.scope;
+  var metrics = context.metrics;
 
   //////////////////////////////////////////////////////////////////////////////////////
   function _get_queues(req, res) {
