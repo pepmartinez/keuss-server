@@ -2,10 +2,14 @@
 * REST
 * STOMP
   + add auth?
-  + add http introspection         (minimally done)
+  + add http introspection (minimally done)
   + profile cpu/mem
 * Monitoring
-  + add prometheus scrape
+  + add more prometheus metrics:
+    - sessions
+    - subscriptions
+    - http consumers
+    - refect stats as gauges
 * AMQP
   + add it
 

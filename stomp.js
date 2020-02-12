@@ -471,13 +471,12 @@ class STOMP {
 
   ///////////////////////////////////////////////////////////////////////////
   _frame_SEND (sess, frm) {
-    var self = this;
     logger.debug ('%s@stomp: got SEND, %j', sess.id, frm);
 
     // must be json
     var ct = frm.header('content-type') || '';
     if (!ct.match (/^application\/json/)) {
-      return self._error_in_session (sess, frm, 'content-type must be application/json');
+      return this._error_in_session (sess, frm, 'content-type must be application/json');
     }
 
     var body;
@@ -486,7 +485,7 @@ class STOMP {
       body = JSON.parse (frm.body());
     }
     catch (e) {
-      return self._error_in_session (sess, frm, 'error while parsing json body: ' + e);
+      return this._error_in_session (sess, frm, 'error while parsing json body: ' + e);
     }
 
     var x_next_t =  parseInt (frm.header ('x-next-t'));
@@ -497,14 +496,16 @@ class STOMP {
     if (x_delta_t) opts.delay = Math.floor(x_delta_t / 1000);
 
     var q = this._get_queue (frm.destination);
-    if (_.isString (q)) return self._error_in_session (sess, frm, q);
+    if (_.isString (q)) return this._error_in_session (sess, frm, q);
 
     q.push (body, opts, (err, id) => {
       if (err) {
-        self._error_in_session (sess, frm, err);
+        this._error_in_session (sess, frm, err);
       } else {
-        self._honor_receipt (sess, frm);
+        this._honor_receipt (sess, frm);
       }
+
+      this._metrics.keuss_q_push.labels ('stomp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 

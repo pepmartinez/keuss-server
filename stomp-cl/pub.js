@@ -9,7 +9,7 @@ function send_item (client) {
   }
 
 //  setTimeout (function () {
-  setImmediate (function() {
+  setImmediate (() => {
     var sendHeaders = {
       'destination': '/q/safebuckets/stomp_test_or_else',
       'content-type': 'application/json',
