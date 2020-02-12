@@ -145,6 +145,19 @@ function send_obj (scl, q, obj, cb) {
 }
 
 
+
+var metrics = {
+};
+_.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
+  metrics['keuss_' + i] = {
+    labels: function () {
+      return {
+        inc: function () {}
+      };
+    }
+  };
+});
+
 _.forEach([
   'redis_oq',
   'mongo_simple',
@@ -162,7 +175,7 @@ _.forEach([
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        stomp_server = new Stomp (config, {scope});
+        stomp_server = new Stomp (config, {scope, metrics});
         stomp_server.run (done);
       });
     });

@@ -181,6 +181,18 @@ function get_consumers(namespace, q, cb) {
     });
 }
 
+var metrics = {
+};
+_.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
+  metrics['keuss_' + i] = {
+    labels: function () {
+      return {
+        inc: function () {}
+      };
+    }
+  };
+});
+
 
 _.forEach([
   'redis_oq',
@@ -196,7 +208,7 @@ _.forEach([
       var scope = new Scope ();
       scope.init (config, function (err) {
         if (err) return done (err);
-        BaseApp(config, {scope}, function () {}, function (err, app) {
+        BaseApp(config, {scope, metrics}, function () {}, function (err, app) {
           theApp = app;
           done(err);
         });

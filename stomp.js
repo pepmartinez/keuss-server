@@ -12,10 +12,12 @@ var logger = Log.logger ('stomp');
 
 class QConsumer {
   ///////////////////////////////////////////
-  constructor (q, opts, cb) {
+  constructor (q, opts, context, cb) {
     this._q = q;
     this._opts = opts || {};
     this._cb = cb;
+    this._context = context;
+    this._metrics = context.metrics;
 
     this._pop_opts = {
       reserve: this._opts.reserve || false
@@ -56,6 +58,8 @@ class QConsumer {
       return;
     }
 
+    var metric = (this._pop_opts.reserve ? this._metrics.keuss_q_reserve : this._metrics.keuss_q_pop);
+
     var tid = this._q.pop (pcid, this._pop_opts, (err, res) => {
       delete this._pending_tids[tid];
 
@@ -63,6 +67,7 @@ class QConsumer {
 
       if (err == 'cancel') {
         // consumer cancelled, end loop
+        metric.labels ('stomp', this._q.ns(), this._q.name(), 'cancel').inc ();
         logger.debug ('QConsumer %s: cancelled while pop from queue %s, tid is %s', pcid, this._q.name(), tid);
         return;
       }
@@ -80,6 +85,7 @@ class QConsumer {
 
       this._cb (err, res);
       setImmediate (() => this._a_single_iteration (pcid));
+      metric.labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : 'ok')).inc ();
     });
 
     this._pending_tids[tid] = new Date();
@@ -103,9 +109,11 @@ class QConsumer {
     _.forEach (this._pending_acks, (val, id) => {
       this._q.ko (id, next_t, err => {
         if (err) {
+          this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ko').inc ();
           logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', this._cid, id, '' + err);
         }
         else {
+          this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ok').inc ();
           logger.verbose ('QConsumer %s: rolled back pending ack [%s]', this._cid, id);
         }
       });
@@ -129,6 +137,7 @@ class QConsumer {
       logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
       this._window_release ();
       if (cb) cb (err);
+      this._metrics.keuss_q_commit .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 
@@ -143,6 +152,7 @@ class QConsumer {
       logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
       this._window_release ();
       if (cb) cb (err);
+      this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 
@@ -530,7 +540,7 @@ class STOMP {
     if (frm.header('x-parallel')) subscribe_opts.parallel = (parseInt (frm.header('x-parallel')) || 1);
     if (frm.header('x-wsize'))    subscribe_opts.wsize =    (parseInt (frm.header('x-wsize'))    || 1000);
 
-    var qc = new QConsumer (q, subscribe_opts, (err, item) => {
+    var qc = new QConsumer (q, subscribe_opts, {metrics: this._metrics}, (err, item) => {
       logger.debug ('got elem for subscr: %j - %j', err, item, {});
 
       if (sess.s == 'ended') {
@@ -550,7 +560,7 @@ class STOMP {
       m_frm.command (SF.Commands.MESSAGE);
       m_frm.body (JSON.stringify (item.payload));
       m_frm.header ('subscription', frm.id);
-      m_frm.header ('message-id', frm.id + '-' + (item._id ? item._id.toString() : 'none'));
+      m_frm.header ('message-id', frm.id + '@' + (item._id ? item._id.toString() : 'none'));
       m_frm.header ('destination', q.name());
       m_frm.header ('x-mature', item.mature.toString ());
       m_frm.header ('x-tries', item.tries + '');
@@ -592,7 +602,7 @@ class STOMP {
   _frame_ACK (sess, frm) {
     logger.debug ('%s@stomp: got ACK, %j', sess.id, frm);
 
-    var arr = frm.id.split('-');
+    var arr = frm.id.split('@');
 
     if (arr.length != 2) return this._error_in_session (sess, frm, util.format ('invalid message id %s', frm.id));
 
@@ -614,7 +624,7 @@ class STOMP {
   _frame_NACK (sess, frm) {
     logger.debug ('%s@stomp: got NACK, %j', sess.id, frm);
 
-    var arr = frm.id.split('-');
+    var arr = frm.id.split('@');
 
     if (arr.length != 2) return this._error_in_session (sess, frm, util.format ('invalid message id %s', frm.id));
 

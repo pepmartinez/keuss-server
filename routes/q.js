@@ -169,6 +169,8 @@ function get_router(config, context) {
           id: id
         });
       }
+
+      metrics.keuss_q_push.labels ('rest', req.__q.ns(), req.__q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 
@@ -178,6 +180,7 @@ function get_router(config, context) {
     var q = req.__q;
     var opts = {};
     var cid = req.ip + '-' + new Date().getTime();
+    var metric = metrics.keuss_q_pop;
 
     if (req.query.to) {
       opts.timeout = req.query.to;
@@ -189,6 +192,7 @@ function get_router(config, context) {
 
     if (req.query.reserve) {
       opts.reserve = true;
+      metric = metrics.keuss_q_reserve;
     }
 
     var tid = q.pop(cid, opts, (err, result) => {
@@ -197,29 +201,31 @@ function get_router(config, context) {
           res.status(504);
           res.statusMessage = 'Queue Pop Timeout';
           res.send(err);
+          metric.labels ('rest', req.__q.ns(), req.__q.name(), 'timeout').inc ();
         } else if (err == 'cancel') {
           res.status(410);
           res.statusMessage = 'Queue Pop Cancelled';
           res.send(err);
+          metric.labels ('rest', req.__q.ns(), req.__q.name(), 'cancel').inc ();
         } else {
           res.status(500).send(err);
+          metric.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         }
       } else {
         res.send(result);
+        metric.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
       }
     });
 
     // check if (res.finished)
     res.on('close', () => {
       if (!res.finished) {
-        //        console.log ('cancelling ' + tid);
         q.cancel(tid);
       }
     });
 
     res.on('aborted', () => {
       if (!res.finished) {
-        //        console.log ('cancelling ' + tid);
         q.cancel(tid);
       }
     });
@@ -242,14 +248,17 @@ function get_router(config, context) {
 
     q.ok(req.params.id, (err, ret) => {
       if (err) {
+        metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         return res.status(500).send(err);
       }
 
       if (!ret) {
+        metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
         return res.status(404).send('id ' + req.params.id + ' cannot be committed');
       }
 
       res.send({});
+      metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
     });
   }
 
@@ -263,14 +272,17 @@ function get_router(config, context) {
 
     q.ko(req.params.id, next_t, (err, ret) => {
       if (err) {
+        metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         return res.status(500).send(err);
       }
 
       if (!ret) {
+        metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
         return res.status(404).send('id ' + req.params.id + ' cannot be rolled back');
       }
 
       res.send({});
+      metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
     });
   }
 
