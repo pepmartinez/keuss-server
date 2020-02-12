@@ -26,7 +26,7 @@ function _create_metric (context, id, help) {
     context.metrics[id] = the_metric;
   }
   else {
-    context.metrics[id] = new context.promster.Counter ({
+    context.metrics['keuss_' + id] = new context.promster.Counter ({
       name: 'keuss_' + id,
       help: help,
       labelNames: ['proto', 'ns', 'q', 'status']
