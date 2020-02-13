@@ -2,7 +2,7 @@ var should =  require('should');
 var async =   require('async');
 var _ =       require('lodash');
 var stompit = require('stompit');
-var Log =     require ('winston-log-space');
+var Log =     require('winston-log-space');
 
 
 var stomp_server;
@@ -144,6 +144,17 @@ function send_obj (scl, q, obj, cb) {
 
 
 
+var promster = {
+  register: {
+    getSingleMetric: function () {return null;}
+  },
+  Gauge: class __Gauge__ {
+    constructor() {}
+    set () {}
+  }
+}
+
+
 var metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
@@ -176,7 +187,7 @@ _.forEach([
         var scope = new Scope ();
         scope.init (config, err  => {
           if (err) return cb (err);
-          stomp_server = new Stomp (config, {scope, metrics});
+          stomp_server = new Stomp (config, {scope, metrics, promster});
           stomp_server.run (cb);
         });
       }

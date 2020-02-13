@@ -144,7 +144,15 @@ function send_obj (scl, q, obj, cb) {
   frame.end();
 }
 
-
+var promster = {
+  register: {
+    getSingleMetric: function () {return null;}
+  },
+  Gauge: class __Gauge__ {
+    constructor() {}
+    set () {}
+  }
+}
 
 var metrics = {
 };
@@ -170,12 +178,12 @@ _.forEach([
     Log.init ({level: {default: 'verbose'}}, done);
   });
 
-  describe('STOMP reserve operations on queue namespace ' + namespace, function () {
-    before(function (done) {
+  describe('STOMP reserve operations on queue namespace ' + namespace, () => {
+    before(done => {
       var scope = new Scope ();
-      scope.init (config, function (err) {
+      scope.init (config, err => {
         if (err) return done (err);
-        stomp_server = new Stomp (config, {scope, metrics});
+        stomp_server = new Stomp (config, {scope, metrics, promster});
         stomp_server.run (done);
       });
     });
@@ -184,7 +192,7 @@ _.forEach([
       stomp_server.end (() => setTimeout (done, 1000));
     });
 
-    it('does push/reserve/commit ok', function (done) {
+    it('does push/reserve/commit ok', done => {
       var q = '/q/' + namespace + '/stomp_test_2';
       var msg = {
         a: 'aaa',
@@ -195,7 +203,7 @@ _.forEach([
         }
       };
 
-      stompcl (function (err, cl) {
+      stompcl ((err, cl) => {
         if (err) return done(err);
 
         var subscribeHeaders = {
@@ -203,10 +211,10 @@ _.forEach([
           'ack': 'client-individual'
         };
 
-        cl.subscribe(subscribeHeaders, function(err, message) {
+        cl.subscribe(subscribeHeaders, (err, message) => {
           if (err) return done(err);
 
-          message.readString ('utf-8', function (err, body) {
+          message.readString ('utf-8', (err, body) => {
             if (err) return done(err);
             JSON.parse (body).should.eql (msg);
             cl.ack (message);
@@ -216,10 +224,67 @@ _.forEach([
         });
 
         // send it
-        send_obj (cl, q, msg, function (r) {});
+        send_obj (cl, q, msg, r => {});
       });
     });
 
-    it('does push/reserve/nack cycle (2 nacks, 1 ack) ok');
+    it('does push/reserve/nack cycle (2 nacks, 1 ack) ok', done => {
+      var q = '/q/' + namespace + '/stomp_test_3';
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      stompcl ((err, cl) => {
+        if (err) return done(err);
+
+        var subscribeHeaders = {
+          'destination': q,
+          'ack': 'client-individual'
+        };
+
+        var record = [];
+
+        cl.subscribe(subscribeHeaders, (err, message) => {
+          if (err) return done(err);
+
+          message.readString ('utf-8', (err, body) => {
+            if (err) return done(err);
+            var objbody = JSON.parse (body);
+
+            if (record.length > 2) {
+              cl.ack (message);
+              cl.disconnect();
+
+              record.length.should.equal (3);
+              for (let i = 0; i++; i < record.length) {
+                record[i].body.shoud.eql (msg);
+                record[i].headers['message-id'].should.equal (record[0].headers['message-id']);
+                record[i].headers.destination.should.equal (record[0].headers.destination);
+                record[i].headers.subscription.should.equal (record[0].headers.subscription);
+                record[i].headers['x-tries'].should.equal (i);
+              }
+
+              done();
+            }
+            else {
+              record.push ({
+                body: objbody,
+                headers: message.headers
+              });
+
+              cl.nack (message);
+            }
+          });
+        });
+
+        // send it
+        send_obj (cl, q, msg, r => {});
+      });
+    });
   });
 });

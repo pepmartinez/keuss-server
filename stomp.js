@@ -176,6 +176,7 @@ class STOMP {
     this._config = config.stomp || {};
     this._scope = context.scope;
     this._metrics = context.metrics;
+    this._context = context;
 
     // active sessions. entries are:
     // {
@@ -185,7 +186,66 @@ class STOMP {
     //   subscrs: {}
     // }
     this._sessions = {};
-    this._ka_timer = setInterval (() => this._keep_alive (), this._config.keepalive_interval || 1000);
+
+    this._create_metrics_stomp ();
+
+    this._ka_timer =  setInterval (() => this._keep_alive (), this._config.keepalive_interval || 1000);
+    this._rgm_timer = setInterval (() => this._refresh_gauge_metrics (), this._config.refresh_metrics_interval || 2000);
+  }
+
+
+  //////////////////////////////////////////////////
+  _create_metric_stomp (id, help) {
+    let the_metric = this._context.promster.register.getSingleMetric('stomp_' + id);
+
+    if (the_metric) {
+      this._stomp_metrics['stomp_' + id] = the_metric;
+    }
+    else {
+      this._stomp_metrics['stomp_' + id] = new this._context.promster.Gauge ({
+        name: 'stomp_' + id,
+        help: help
+      });
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _create_metrics_stomp () {
+    this._stomp_metrics = {};
+    this._create_metric_stomp ('sessions',      'active STOMP sessions');
+    this._create_metric_stomp ('subscriptions', 'active STOMP subscriptions');
+    this._create_metric_stomp ('pending_acks',  'in-flight messages, pending ack');
+    this._create_metric_stomp ('pending_tids',  'idle consumers');
+    this._create_metric_stomp ('wsize',         'total window size');
+  }
+
+
+  ////////////////////////////////////////////////////
+  _refresh_gauge_metrics () {
+    let sessions = 0;
+    let subscriptions = 0;
+    let pending_acks = 0;
+    let pending_tids = 0;
+    let wsize = 0;
+
+    _.forEach (this._sessions, (s) => {
+      sessions++;
+
+      _.forEach (s.subscrs, (subscr) => {
+        subscriptions++;
+        const qc_st = subscr.qc.status();
+        pending_acks += _.size (qc_st.pending_acks);
+        pending_tids += _.size (qc_st.pending_tids);
+        wsize += qc_st.wsize;
+      });
+    });
+
+    this._stomp_metrics.stomp_sessions.set (sessions);
+    this._stomp_metrics.stomp_subscriptions.set (subscriptions);
+    this._stomp_metrics.stomp_pending_acks.set (pending_acks);
+    this._stomp_metrics.stomp_pending_tids.set (pending_tids);
+    this._stomp_metrics.stomp_wsize.set (wsize);
   }
 
 
@@ -207,6 +267,7 @@ class STOMP {
     logger.info ('STOMP server ending');
 
     clearInterval (this._ka_timer);
+    clearInterval (this._rgm_timer);
 
     this._server.close (() => {
       // end all sessions
@@ -445,6 +506,8 @@ class STOMP {
   _frame_STOMP (sess, frm) {
     logger.debug ('%s@stomp: got STOMP/CONNECT, %j', sess.id, frm);
     if (sess.s != 'fresh') return this._error_in_session (sess, frm, 'already connected');
+
+    // TODO add auth
 
     sess.s = 'connected';
     var vers = frm['accept-version'];

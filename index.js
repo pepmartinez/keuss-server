@@ -19,7 +19,7 @@ var defaults = {
 };
 
 
-function _create_metric (context, id, help) {
+function _create_q_metric (context, id, help) {
   let the_metric = context.promster.register.getSingleMetric('keuss_' + id);
 
   if (the_metric) {
@@ -37,11 +37,11 @@ function _create_metric (context, id, help) {
 function _create_metrics (context, cb) {
   // create extra metrics
   context.metrics = {};
-  _create_metric (context, 'q_push', 'counters on queue insertion through server');
-  _create_metric (context, 'q_pop',  'counters on queue pop through server');
-  _create_metric (context, 'q_reserve', 'counters on queue reserve through server');
-  _create_metric (context, 'q_commit', 'counters on queue commit through server');
-  _create_metric (context, 'q_rollback', 'counters on queue rollback through server');
+  _create_q_metric (context, 'q_push',     'counters on queue insertion through server');
+  _create_q_metric (context, 'q_pop',      'counters on queue pop through server');
+  _create_q_metric (context, 'q_reserve',  'counters on queue reserve through server');
+  _create_q_metric (context, 'q_commit',   'counters on queue commit through server');
+  _create_q_metric (context, 'q_rollback', 'counters on queue rollback through server');
 
   cb ();
 }
