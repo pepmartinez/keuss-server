@@ -1,12 +1,12 @@
 * General
+* Monitoring
+  + add more prometheus metrics:
+    - reflect stats as gauges
 * REST
 * STOMP
   + add auth
   + add TLS
   + profile cpu/mem
-* Monitoring
-  + add more prometheus metrics:
-    - reflect stats as gauges
 * AMQP
   + add it
 * MQTT

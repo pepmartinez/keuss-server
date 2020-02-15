@@ -181,6 +181,15 @@ function get_consumers(namespace, q, cb) {
     });
 }
 
+
+function _get_body (cb) {
+  return function (err, res) {
+    if (err) return cb(err);
+    return cb (null, res.body);
+  }
+}
+
+
 var metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
@@ -220,6 +229,32 @@ _.forEach([
       theApp.locals.Prometheus.register.clear();
       done();
     });
+
+    it ('lists introspection info ok', done => {
+      async.series([
+        cb => request(theApp).get('/q/' + namespace + '/q1/status').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/' + namespace + '/q2/status').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/' + namespace + '/q1/consumers').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/' + namespace + '/q2/consumers').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/' + namespace + '/q1/paused').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/' + namespace + '/q2/paused').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/' + namespace).expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q?tree=1').expect(200).auth('test', 'toast').end(_get_body (cb)),
+        cb => request(theApp).get('/q/?array=1').expect(200).auth('test', 'toast').end(_get_body (cb)),
+      ], (err, res) => {
+        if (err) return done(err);
+        res[2].should.eql ([]);
+        res[3].should.eql ([]);
+        res[4].should.equal (false);
+        res[5].should.equal (false);
+
+        // TODO check schema of rest
+
+        done ();
+      });
+    });
+
 
     it('does push/pop ok', function (done) {
       var msg = {
