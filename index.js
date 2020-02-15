@@ -74,13 +74,14 @@ cconf
       context.scope = new Scope ();
 
       async.series ([
-        cb => context.scope.init (config, cb),
+        cb => context.scope.init (config, context, cb),
         cb => BaseApp (config, context, null, (err, app) => {
           if (err) return cb (err);
           context.app = app;
           context.promster = context.app.locals.Prometheus;
           cb ();
         }),
+        cb => context.scope.start (cb),
         cb => _create_metrics (context, cb),
         cb => {
           // init stomp server

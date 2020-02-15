@@ -264,7 +264,7 @@ _.forEach([
   describe('REST reserve-commit-rollback operations on queue namespace ' + namespace, function () {
     before(function (done) {
       var scope = new Scope ();
-      scope.init (config, function (err) {
+      scope.init (config, {}, function (err) {
         if (err) return done (err);
         BaseApp(config, {scope, metrics}, function () {}, function (err, app) {
           theApp = app;

@@ -185,7 +185,7 @@ _.forEach([
         const Scope = require ('../Scope');
 
         var scope = new Scope ();
-        scope.init (config, err  => {
+        scope.init (config, {}, err  => {
           if (err) return cb (err);
           stomp_server = new Stomp (config, {scope, metrics, promster});
           stomp_server.run (cb);

@@ -108,6 +108,14 @@ Commits a previous reserve operation. `id` is the `_id` inside the object return
 Admits the following query parameters:
 * `delay`: delay in millsecs to apply to the rolled back object: it will be available for get/reserver after *delay* milliseconds. Defaults to 0, so rolled back elements are immediately available for others
 
+### Pause all consumers to a queue: `PATCH /q/:namespace/:q/pause`
+Pauses all consumers of a queue. It affects all keuss consumers (not only local ones) pprovided a non-local signaller is used by the queue
+Takes no body
+
+### Resume all consumers to a queue: `PATCH /q/:namespace/:q/resume`
+REsumes all consumers of a queue. It affects all keuss consumers (not only local ones) pprovided a non-local signaller is used by the queue
+Takes no body
+
 ## STOMP stack
 The included STOMP stack supports version 1.2 only of STOMP, with the following exceptions:
 * there is no support for transactions, so frames BEGIN, COMMIT and ABORT are not supported
@@ -126,3 +134,4 @@ There are also a few additions on top of the standard STOMP:
 * extra info in MESSAGE: some extra info is included on each MESSAGE frame returned, to ease retries and/or better management:
   * `x-mature`: ISO timestamp when the message became elligible for pop/reserve (mature)
   * `x-tries`: number of tries of this message. Each NACK increments this value, so this can be used in conjunction with `x-delta-t` to implement custom delays on failing elements, or limiting the number fo retries
+  * There is no support for auth yet. User and passwd are simply ignored

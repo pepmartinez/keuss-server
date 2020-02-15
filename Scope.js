@@ -19,6 +19,7 @@ class Scope {
     return this._q_namespaces;
   }
 
+
   //////////////////////////////
   namespace (t) {
     return this._q_namespaces[t];
@@ -111,12 +112,89 @@ class Scope {
   }
 
 
+  //////////////////////////////////////////////////
+  _create_metric_gauge_q_global (id, help) {
+    let the_metric = this._context.promster.register.getSingleMetric('q_global_' + id);
+
+    if (the_metric) {
+      this._metrics['q_global_' + id] = the_metric;
+    }
+    else {
+      this._metrics['q_global_' + id] = new this._context.promster.Gauge ({
+        name: 'q_global_' + id,
+        help: help,
+        labelNames: ['ns', 'q']
+      });
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _create_metrics_g_global () {
+    this._metrics = {};
+    this._create_metric_gauge_q_global ('size',      'size of queue, only available elements');
+    this._create_metric_gauge_q_global ('schedSize', 'elements in queue due in the future');
+    this._create_metric_gauge_q_global ('totalSize', 'total size of queue (all elements)');
+    this._create_metric_gauge_q_global ('resvSize',  'reserved elements in queue pending commit/rollback');
+  }
+
+
+  //////////////////////////////////////////////////
+  _refresh_q_global_metrics_for_queue (q, cb) {
+
+    async.parallel ({
+      size:          cb => q.size (cb),
+      totalSize:     cb => q.totalSize (cb),
+      schedSize:     cb => q.schedSize (cb),
+      resvSize:      cb => q.resvSize (cb)
+    }, (err, res) => {
+      if (err) return cb (err);
+      this._metrics.q_global_size.labels (q.ns(), q.name()).set (res.size);
+      this._metrics.q_global_totalSize.labels (q.ns(), q.name()).set (res.totalSize);
+      this._metrics.q_global_schedSize.labels (q.ns(), q.name()).set (res.schedSize);
+      this._metrics.q_global_resvSize.labels (q.ns(), q.name()).set (res.resvSize);
+      cb ();
+    });
+  }
+
+
   //////////////////////////////
-  init (config, cb) {
+  _refresh_q_global_metrics () {
+    var tasks = [];
+
+    _.each (this._q_namespaces, ns => {
+       ns.q_repo.forEach (q => {
+        tasks.push (cb => this._refresh_q_global_metrics_for_queue (q, cb))
+      });
+    });
+
+    async.parallel (tasks, err => {
+      if (err) return logger.error ('while refreshing q_global metrics: %j', err);
+    });
+  }
+
+
+  //////////////////////////////
+  init (config, context, cb) {
+    this._context = context;
+    this._config = config;
+
     async.series ([
       cb => this._init_stats_providers  (config, cb),
       cb => this._init_signal_providers (config, cb),
-      cb => this._init_backends         (config, cb)
+      cb => this._init_backends         (config, cb),
+    ], cb);
+  }
+
+
+  //////////////////////////////
+  start (cb) {
+    async.series ([
+      cb => {
+        this._create_metrics_g_global ();
+        this._rqgm_timer = setInterval (() => this._refresh_q_global_metrics (), this._config.refresh_metrics_interval || 2000);
+        cb ();
+      }
     ], cb);
   }
 
@@ -124,6 +202,7 @@ class Scope {
   //////////////////////////////
   end (cb) {
     var tasks = [];
+
     _.each (this._q_namespaces, (v, k) => {
       tasks.push ((cb) => {
         logger.info (`closing backend ${k}`)
@@ -135,6 +214,8 @@ class Scope {
         v.factory.close (cb);
       });
     });
+
+    clearInterval (this._rqgm_timer);
 
     async.parallel (tasks, (err) => {
       logger.info ('all factories closed');

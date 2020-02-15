@@ -181,7 +181,7 @@ _.forEach([
   describe('STOMP reserve operations on queue namespace ' + namespace, () => {
     before(done => {
       var scope = new Scope ();
-      scope.init (config, err => {
+      scope.init (config, {}, err => {
         if (err) return done (err);
         stomp_server = new Stomp (config, {scope, metrics, promster});
         stomp_server.run (done);
