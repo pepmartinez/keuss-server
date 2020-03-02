@@ -3,7 +3,7 @@ var stompit = require('stompit');
 var count = 0;
 
 function send_item (client) {
-  if (count > 1000000) {
+  if (count > 100000) {
     client.disconnect();
     return;
   }
