@@ -1,7 +1,5 @@
 * General
-* Monitoring
-  + add more prometheus metrics:
-    - reflect stats as gauges
+  + add deadletter queues
 * REST
 * STOMP
   + add auth

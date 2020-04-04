@@ -152,7 +152,8 @@ class Scope {
       this._metrics.q_global_size.labels (q.ns(), q.name()).set (res.size);
       this._metrics.q_global_totalSize.labels (q.ns(), q.name()).set (res.totalSize);
       this._metrics.q_global_schedSize.labels (q.ns(), q.name()).set (res.schedSize);
-      this._metrics.q_global_resvSize.labels (q.ns(), q.name()).set (res.resvSize);
+
+      if (_.isInteger (res.resvSize)) this._metrics.q_global_resvSize.labels (q.ns(), q.name()).set (res.resvSize);
       cb ();
     });
   }
