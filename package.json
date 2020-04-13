@@ -35,7 +35,7 @@
     "express": "~4.16.4",
     "express-basic-auth": "~1.2.0",
     "http-shutdown": "~1.2.1",
-    "keuss": "1.5.7",
+    "keuss": "1.5.8",
     "lodash": "~4.17.15",
     "pug": "~2.0.4",
     "stomp-frames": "~1.0.3",
