@@ -42,7 +42,7 @@
     "uuid": "~7.0.3",
     "winston-log-space": "~1.0.3",
     "prom-client": "~11.5.3",
-    "@promster/express": "~4.0.0"
+    "@promster/express": "~4.1.2"
   },
   "devDependencies": {
     "mocha": "~7.1.1",

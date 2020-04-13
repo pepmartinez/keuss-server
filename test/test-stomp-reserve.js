@@ -32,6 +32,9 @@ var config = {
         },
         signaller: {
           provider: signal_mongo
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     },
@@ -45,6 +48,9 @@ var config = {
         },
         signaller: {
           provider: signal_mongo
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     },
@@ -58,6 +64,9 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     },
@@ -71,6 +80,9 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     },
@@ -84,6 +96,9 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     },
@@ -96,6 +111,9 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     },
@@ -108,6 +126,9 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     }
@@ -126,7 +147,7 @@ function stompcl (cb) {
       'host': '/',
       'login': 'username',
       'passcode': 'password',
-      'heart-beat': '5000,6000'
+      'heart-beat': '15000,15000'
     }
   };
 
@@ -286,5 +307,79 @@ _.forEach([
         send_obj (cl, q, msg, r => {});
       });
     });
+
+    it('does push/reserve/nack cycle up to deadletter ok', done => {
+      var q = '/q/' + namespace + '/stomp_test_4';
+      var msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+
+      stompcl ((err, cl) => {
+        if (err) return done(err);
+
+        var subscribeHeaders = {
+          'destination': q,
+          'ack': 'client-individual'
+        };
+
+        var subscribeHeaders_deadletter = {
+          'destination': '/q/' + namespace + '/__deadletter__',
+          'ack': 'client-individual'
+        };
+
+        var record = [];
+
+        cl.subscribe(subscribeHeaders_deadletter, (err, message) => {
+          if (err) return done(err);
+
+          message.readString ('utf-8', (err, body) => {
+            if (err) return done(err);
+
+            var objbody = JSON.parse (body);
+            cl.ack (message);
+            cl.disconnect();
+
+//            record.length.should.equal (6);
+
+            objbody.should.eql ({ a: 'aaa', b: 666, c: { ca: 'rtrtr', cb: {} } });
+            message.headers.should.match ({
+              subscription: /.+/,
+              'message-id': /.+/,
+              destination: '__deadletter__',
+              'x-mature': /.+/,
+              'x-tries': '0',
+              'content-type': 'application/json ; charset=utf8',
+              'content-length': 46
+            });
+
+            done ();
+          });
+        });
+
+        cl.subscribe(subscribeHeaders, (err, message) => {
+          if (err) return done(err);
+
+          message.readString ('utf-8', (err, body) => {
+            if (err) return done(err);
+            var objbody = JSON.parse (body);
+            record.push ({
+              body: objbody,
+              headers: message.headers
+            });
+
+            cl.nack (message);
+          });
+        });
+
+        // send it
+        send_obj (cl, q, msg, r => {});
+      });
+    });
+
   });
 });

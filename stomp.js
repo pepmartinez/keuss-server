@@ -75,7 +75,11 @@ class QConsumer {
       logger.debug ('QConsumer %s: return from pop from queue %s, tid is %s', pcid, this._q.name(), tid);
 
       if (this._pop_opts.reserve && res) {
-        this._pending_acks[res._id] = new Date();
+        this._pending_acks[res._id] = {
+          t: new Date(),
+          msg: res
+        };
+
         logger.debug ('QConsumer %s: new pending ack [%s]', pcid, res._id);
       }
       else {
@@ -107,7 +111,7 @@ class QConsumer {
     // rollback pending acks
     var next_t = new Date().getTime ();
     _.forEach (this._pending_acks, (val, id) => {
-      this._q.ko (id, next_t, err => {
+      this._q.ko (val.msg, next_t, err => {
         if (err) {
           this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ko').inc ();
           logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', this._cid, id, '' + err);
@@ -132,7 +136,7 @@ class QConsumer {
   ack (id, cb) {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
-    this._q.ok (id, err => {
+    this._q.ok (this._pending_acks[id].msg, err => {
       delete this._pending_acks[id];
       logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
       this._window_release ();
@@ -147,7 +151,7 @@ class QConsumer {
 
     logger.debug ('QConsumer %s: nacking id [%s], next_t is %s', this._cid, id, new Date (next_t));
 
-    this._q.ko (id, next_t, err => {
+    this._q.ko (this._pending_acks[id].msg, next_t, err => {
       delete this._pending_acks[id];
       logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
       this._window_release ();
@@ -162,7 +166,7 @@ class QConsumer {
       q:            this._q.name(),
       opts:         this._opts,
       cid:          this._cid,
-      pending_acks: this._pending_acks,
+      pending_acks: _.mapValues (this._pending_acks, o => {return {t: o.t, id: o.msg._id}}),
       pending_tids: this._pending_tids,
       wsize:        this._wsize
     };
