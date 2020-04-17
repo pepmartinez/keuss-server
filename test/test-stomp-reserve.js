@@ -352,7 +352,7 @@ _.forEach([
               'message-id': /.+/,
               destination: '__deadletter__',
               'x-mature': /.+/,
-              'x-tries': '0',
+              'x-tries': /.+/,
               'content-type': 'application/json ; charset=utf8',
               'content-length': 46
             });
