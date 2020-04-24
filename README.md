@@ -79,7 +79,7 @@ For more information about how the config is specified and composed please see [
 * `namespaces`: the queue namespaces to connect to; they define instances of keuss queue factories, and follow this schema:
   * `factory`: the keuss queue factory to use
   * `disable`: whether to disable it, defaults to false
-  * `config`: the keuss config for the queue factory. Tehre is a difference with plain keuss, however: the `config.stats` and `config.signaller` should be strings, referring to factories declared inside `stats` and  `signallers`. Alternatively, the keuss way (passing a factory object) is also allowed
+  * `config`: the keuss config for the queue factory. There is a difference with plain keuss, however: the `config.stats` and `config.signaller` should be strings, referring to factories declared inside `stats` and  `signallers`. Alternatively, the keuss way (passing a factory object) is also allowed
 
 keuss-server allows all backend types offered by keuss v1.4.0: redis-list, redis-ordered, mongo-simple, mongo-pipeline and mongo-persistent. However, the pipeline-specific operations are not yet supported by keuss-server
 
@@ -87,6 +87,9 @@ Keuss-server comes with a sample config.js with namespaces and queues of the 5 t
 
 ## Web Console
 If you're running keuss-server in localhost, and the http.port is set to 3456, open a browser at `http://localhost:3456` and you will get a simple web console showing a table with all the queues found and information about them
+
+## Deadletter support
+Only STOP interfaces support deadletters (that is, move to a parking queue all elements that are rolled back too many times). For that to work, the Namespace config has to be configured to suppor deadletter
 
 ## REST API
 All the REST operations on all queues are locted under `/q` path. Also, all operations are protected with HTTP Basic Auth (see *configuration* above)
