@@ -103,7 +103,6 @@ function _reload_list_queues(scope, req, res) {
 //////////////////////////////////////////////////////////////////////////////////////
 function get_router(config, context) {
   var scope = context.scope;
-  var metrics = context.metrics;
 
   //////////////////////////////////////////////////////////////////////////////////////
   function _get_queues(req, res) {
@@ -170,7 +169,7 @@ function get_router(config, context) {
         });
       }
 
-      metrics.keuss_q_push.labels ('rest', req.__q.ns(), req.__q.name(), (err ? 'ko' : 'ok')).inc ();
+      context.metrics.keuss_q_push.labels ('rest', req.__q.ns(), req.__q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 
@@ -180,7 +179,7 @@ function get_router(config, context) {
     var q = req.__q;
     var opts = {};
     var cid = req.ip + '-' + new Date().getTime();
-    var metric = metrics.keuss_q_pop;
+    var metric = context.metrics.keuss_q_pop;
 
     if (req.query.to) {
       opts.timeout = req.query.to;
@@ -192,7 +191,7 @@ function get_router(config, context) {
 
     if (req.query.reserve) {
       opts.reserve = true;
-      metric = metrics.keuss_q_reserve;
+      metric = context.metrics.keuss_q_reserve;
     }
 
     var tid = q.pop(cid, opts, (err, result) => {
@@ -248,17 +247,17 @@ function get_router(config, context) {
 
     q.ok(req.params.id, (err, ret) => {
       if (err) {
-        metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
+        context.metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         return res.status(500).send(err);
       }
 
       if (!ret) {
-        metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
+        context.metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
         return res.status(404).send('id ' + req.params.id + ' cannot be committed');
       }
 
       res.send({});
-      metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
+      context.metrics.keuss_q_commit.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
     });
   }
 
@@ -272,17 +271,17 @@ function get_router(config, context) {
 
     q.ko(req.params.id, next_t, (err, ret) => {
       if (err) {
-        metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
+        context.metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         return res.status(500).send(err);
       }
 
       if (!ret) {
-        metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
+        context.metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
         return res.status(404).send('id ' + req.params.id + ' cannot be rolled back');
       }
 
       res.send({});
-      metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
+      context.metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
     });
   }
 
