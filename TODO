@@ -1,5 +1,4 @@
 * General
-  + add deadletter queues
 * REST
 * STOMP
   + add auth

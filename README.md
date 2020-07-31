@@ -10,6 +10,8 @@ Easiest way is to `npm install keuss-server`; then, edit the config.js file at w
 
 keuss-server comes with mocha tests, runnable with the usual `npm test`. It expects a local running redis server, and a local running mongodb server (just as they are once installed in ubuntu, for example)
 
+Also, a `docker` image is available at [docker hub](https://hub.docker.com/repository/docker/pepmartinez/keuss-server)
+
 ## Logging
 Keuss-server uses [winston-log-space](https://github.com/pepmartinez/winston-log-space) for logging, and by default it logs to stdout only, on a `info` level. See `winston-log-space` for how to configure and tailor logging
 
