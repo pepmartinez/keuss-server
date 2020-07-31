@@ -1,12 +1,6 @@
 
 var qtable = null;
 
-function _render_topology (data, type, full, meta) {
-  if (!data) return '-';
-  var res = JSON.stringify (data);
-  return '<div align="center">' + (res == '{}' ? '-' : JSON.stringify (data)) + '</div>';
-}
-
 function _render_num_null (data, type, full, meta) {
   var v = data;
   if (v === null) v = '(n/a)';
@@ -117,7 +111,6 @@ $(function() {
     ajax: '/q?array=1',
     columns: [
       {data: 'id'},
-      {data: 'topology',      render: _render_topology},
       {data: 'stats.put',     render: _render_num_dash},
       {data: 'stats.get',     render: _render_num_dash},
       {data: 'size',          render: _render_num_zero},
