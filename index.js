@@ -123,7 +123,6 @@ cconf
           cb => context.scope.end (cb),
           cb => {
             if (context.promster) {
-              clearInterval(context.promster.collectDefaultMetrics());
               context.promster.register.clear();
             }
           }
@@ -132,7 +131,7 @@ cconf
         })
       }
 
-      process.on ('SIGINT', __shutdown);
+      process.on ('SIGINT',  __shutdown);
       process.on ('SIGTERM', __shutdown);
     });
 });

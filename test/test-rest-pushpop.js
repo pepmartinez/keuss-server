@@ -225,7 +225,6 @@ _.forEach([
     });
 
     after(function (done) {
-      clearInterval(theApp.locals.Prometheus.collectDefaultMetrics());
       theApp.locals.Prometheus.register.clear();
       done();
     });
