@@ -16,6 +16,7 @@ module.exports = {
         'usage/rest',
         'usage/stomp',
         'usage/clustering',
+        'usage/monitoring',
         'usage/gui',
       ]
     },
