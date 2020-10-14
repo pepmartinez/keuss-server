@@ -5,7 +5,7 @@ sidebar_label: REST API
 ---
 
 ## REST API
-All the REST operations on all queues are locted under `/q` path. Also, all operations are protected with HTTP Basic Auth (see *configuration* above)
+All the REST operations on all queues are located under `/q` path. All operations are protected with HTTP Basic Auth (see *configuration* above)
 
 ### List namespaces: `GET /q`
 Lists all queues on all namespaces. Admits the following query parameters:
