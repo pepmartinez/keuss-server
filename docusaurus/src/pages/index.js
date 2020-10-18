@@ -12,13 +12,13 @@ const features = [
 //    imageUrl: 'img/undraw_docusaurus_mountain.svg',
     description: (
       <>
-        Fully distributed, no single point fo failure.
-        Scalability is limited by the underlying storage's scalability
+        Fully distributed, no single point fo failure. HA, persistence, durability,
+        all is provided almost directly by the underlying storage
       </>
     ),
   },
   {
-    title: 'All Keuss featrues and guarantees',
+    title: 'All Keuss features and guarantees',
 //    imageUrl: 'img/undraw_docusaurus_tree.svg',
     description: (
       <>
