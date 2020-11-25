@@ -8,42 +8,48 @@ Keuss-Server is a rather shallow layer on top of [keuss](https://pepmartinez.git
 capabilities; all of Keuss concepts except Processors and Pipelines are used on keuss-server
 
 ## Queue
+
 Keuss-Server provides the same queue concepts Keuss provides; queues are then grouped in namespaces. See [here](https://pepmartinez.github.io/keuss/docs/concepts#queue)
 
 ### Deadletter support
+
 Only STOMP interfaces support deadletters (that is, move to a parking queue all elements that are rolled back too many times).
-For that to work, the Namespace config has to be configured to suppor deadletter
+For that to work, the Namespace config has to be configured to support deadletter
 
 ## Storage
-Queues are just simple, shallow concepts modelled on top of Storages or Backends. Keuss-Server can use any storage provided by
+
+Queues are just simple, shallow concepts modeled on top of Storages or Backends. Keuss-Server can use any storage provided by
 Keuss; see [here](https://pepmartinez.github.io/keuss/docs/concepts#storage)
 
 ## Signaller
-Signallers provide the needed clustering node intercommunication; all of Keuss' signallers can be used, although for true clustering
-the use of `local` signaller is not recommended. See [here](https://pepmartinez.github.io/keuss/docs/concepts#signaller) for more info
+
+Signallers provide the needed clustering node intercommunication; all of Keuss' signallers can be used, although for true clustering the use of `local` signaller is not recommended. See [here](https://pepmartinez.github.io/keuss/docs/concepts#signaller) for more info
 
 ## Stats
-Per-cluster Stats are also provided by Keuss; any of Keuss Stats providers can be used, but use of `mem` provider would not provide
-actual per-cluster stats in a multi-node cluster
+
+Per-cluster Stats are also provided by Keuss; any of Keuss Stats providers can be used, but use of `mem` provider would not provide actual per-cluster stats in a multi-node cluster
 
 ## How all fits together
+
 1. One or more Stats objects are defined, each one with its own configuration
 2. One or more Signaller are defined, each one with its own configuration
 3. One or more queue namespaces are created, each one using:
-  * a specific Storage and config
-  * one of the Stats objects defined above
-  * one of the Signallers defined above
+ * A specific Storage and config
+ * One of the Stats objects defined above
+ * One of the Signallers defined above
 4. One REST server is created on top of the set of queue namespaces
 5. One STOMP server is created on top of the set of queue namespaces
 
 ## Configuration
-Keuss-Server gets its configuration from a combination of js config files, env variables and cli flags. It uses [cascade-config](https://www.npmjs.com/package/cascade-config) and this is the exact sources of config:
-* env vars prefixed by `KS_`
+
+Keuss-Server gets its configuration from a combination of js config files, environment variables and cli flags. It uses [cascade-config](https://www.npmjs.com/package/cascade-config) and this is the exact sources of config:
+
+* environment vars prefixed by `KS_`
 * cli flags
 * js file `etc/config.js`
 * js file `etc/config-${NODE_ENV}.js`
 
-Args and env vars can be referenced in any of the js files
+Args and environment vars can be referenced in any of the js files
 
 Here's a working example:
 
@@ -193,6 +199,4 @@ var config = {
 
 module.exports = config;
 
-
 ```
-
