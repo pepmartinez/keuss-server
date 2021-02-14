@@ -136,6 +136,9 @@ class Scope {
     this._create_metric_gauge_q_global ('schedSize', 'elements in queue due in the future');
     this._create_metric_gauge_q_global ('totalSize', 'total size of queue (all elements)');
     this._create_metric_gauge_q_global ('resvSize',  'reserved elements in queue pending commit/rollback');
+    this._create_metric_gauge_q_global ('next_t',    'delta time to next due element');
+    this._create_metric_gauge_q_global ('put',       'elements inserted in queue');
+    this._create_metric_gauge_q_global ('get',       'elements extracted from queue');
   }
 
 
@@ -146,12 +149,20 @@ class Scope {
       size:          cb => q.size (cb),
       totalSize:     cb => q.totalSize (cb),
       schedSize:     cb => q.schedSize (cb),
-      resvSize:      cb => q.resvSize (cb)
+      resvSize:      cb => q.resvSize (cb),
+      stats:         cb => q.stats(cb),
+      next_t:        cb => q.next_t (cb),
     }, (err, res) => {
       if (err) return cb (err);
       this._metrics.q_global_size.labels (q.ns(), q.name()).set (res.size);
       this._metrics.q_global_totalSize.labels (q.ns(), q.name()).set (res.totalSize);
       this._metrics.q_global_schedSize.labels (q.ns(), q.name()).set (res.schedSize);
+
+      if (_.isInteger (res.stats.put)) this._metrics.q_global_put.labels (q.ns(), q.name()).set (res.stats.put);
+      if (_.isInteger (res.stats.get)) this._metrics.q_global_get.labels (q.ns(), q.name()).set (res.stats.get);
+
+      const delta = res.next_t ? (res.next_t.getTime() - new Date ().getTime ()) : 0;
+      this._metrics.q_global_next_t.labels (q.ns(), q.name()).set (delta);
 
       if (_.isInteger (res.resvSize)) this._metrics.q_global_resvSize.labels (q.ns(), q.name()).set (res.resvSize);
       cb ();

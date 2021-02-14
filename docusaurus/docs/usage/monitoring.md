@@ -30,3 +30,6 @@ Several metrics are provided at the `/metrics` endpoint:
   * `q_global_schedSize`: gauge, elements in queue due in the future. Use labels 'ns' (namespace), 'q' (queue name)
   * `q_global_totalSize`: gauge, total size of queue (all elements). Use labels 'ns' (namespace), 'q' (queue name)
   * `q_global_resvSize`: gauge, reserved elements in queue pending commit/rollback. Use labels 'ns' (namespace), 'q' (queue name)
+  * `q_global_next_t`: gauge, delta in milliseconds of next element due. Can be negative. Use labels 'ns' (namespace), 'q' (queue name)
+  * `q_global_put`: gauge, number of elements intserted. Use labels 'ns' (namespace), 'q' (queue name)
+  * `q_global_get`: gauge, number of elements extracted. Use labels 'ns' (namespace), 'q' (queue name)
