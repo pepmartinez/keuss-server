@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  keuss-server:
+    image: node:12.15.0-alpine
+    command: ['tail', '-f', '/dev/null']
+    environment:
+      - KS_NODE_ENV=compose
+      - LOG_level__default=debug
+    volumes:
+      - ./:/app
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:4.4.2-bionic
+    command: --logpath /dev/null
+    restart: on-failure
+    ports:
+      - 27017:27017
+
+  redis:
+    image: redis:alpine
+    ports:
+     - 6379:6379
+
+networks:
+  default:
+
