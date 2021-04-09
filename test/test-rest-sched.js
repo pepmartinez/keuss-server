@@ -149,6 +149,16 @@ function get_msg(namespace, q, cb) {
     });
 }
 
+function get_msg_hdrs(namespace, q, cb) {
+  request(theApp)
+    .get('/q/' + namespace + '/' + q)
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, {body: res && res.body, text: res && res.text,  hdrs: res && res.headers});
+    });
+}
+
 function get_msg_timeout(namespace, q, timeout, cb) {
   request(theApp)
     .get('/q/' + namespace + '/' + q)
@@ -162,15 +172,28 @@ function get_msg_timeout(namespace, q, timeout, cb) {
     });
 }
 
+function get_msg_timeout_hdrs(namespace, q, timeout, cb) {
+  request(theApp)
+    .get('/q/' + namespace + '/' + q)
+    .query({
+      to: timeout
+    })
+    .expect(504)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, {body: res && res.body, text: res && res.text,  hdrs: res && res.headers});
+    });
+}
+
 
 
 var metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
-    labels: function () {
+    labels: () => {
       return {
-        inc: function () {}
+        inc: () => {}
       };
     }
   };
@@ -182,25 +205,25 @@ _.forEach([
   'mongo_pipeline',
   'mongo_tape',
   'bucket_mongo_safe'
-], function (namespace) {
-  describe('REST scheduled operations on queue namespace ' + namespace, function () {
-    before(function (done) {
+], namespace => {
+  describe('REST scheduled operations on queue namespace ' + namespace, () => {
+    before (done => {
       var scope = new Scope ();
-      scope.init (config, {}, function (err) {
+      scope.init (config, {}, err => {
         if (err) return done (err);
-        BaseApp(config, {scope, metrics}, function () {}, function (err, app) {
+        BaseApp(config, {scope, metrics}, () => {}, (err, app) => {
           theApp = app;
           done(err);
         });
       });
     });
 
-    after(function (done) {
+    after(done => {
       theApp.locals.Prometheus.register.clear();
       done();
     });
 
-    it('does push/pop ok', function (done) {
+    it('does push/pop ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -210,30 +233,19 @@ _.forEach([
         }
       };
       async.series([
-        function (cb) {
-          put_msg(namespace, 'q1', msg, cb)
-        },
-        function (cb) {
-          get_msg(namespace, 'q1', cb)
-        },
-      ], function (err, allres) {
-        allres[1].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
-
+        cb => put_msg(namespace, 'q1', msg, cb),
+        cb => get_msg(namespace, 'q1', cb),
+      ], (err, allres) => {
+        allres[1].should.eql(msg);
         done(err);
       });
     });
 
-    it('does pop + timeout ok', function (done) {
+    it('does pop + timeout ok', done => {
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {
-          get_msg_timeout(namespace, 'q1', 2000, cb)
-        }
-      ], function (err, allres) {
+        cb => get_msg_timeout(namespace, 'q1', 2000, cb),
+      ], (err, allres) => {
         allres[0].should.match({
           timeout: true,
           tid: /.+/
@@ -246,7 +258,7 @@ _.forEach([
       });
     });
 
-    it('does push-delayed + pop ok', function (done) {
+    it('does push-delayed + pop ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -257,18 +269,10 @@ _.forEach([
       };
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {
-          put_msg_delayed(namespace, 'q1', msg, 2, cb)
-        },
-        function (cb) {
-          get_msg(namespace, 'q1', cb)
-        },
-      ], function (err, allres) {
-        allres[1].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
+        cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
+        cb => get_msg(namespace, 'q1', cb),
+      ], (err, allres) => {
+        allres[1].should.eql(msg);
 
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(2000, 100);
@@ -277,7 +281,7 @@ _.forEach([
       });
     });
 
-    it('does pop + delay + push-delayed ok', function (done) {
+    it('does pop + delay + push-delayed ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -288,21 +292,10 @@ _.forEach([
       };
       var t0 = new Date().getTime();
       async.parallel([
-        function (cb) {
-          get_msg(namespace, 'q1', cb)
-        },
-        function (cb) {
-          setTimeout(function () {
-            put_msg_delayed(namespace, 'q1', msg, 2, cb)
-          }, 1000)
-        }
-      ], function (err, allres) {
-
-        allres[0].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
+        cb => get_msg(namespace, 'q1', cb),
+        cb => setTimeout(() => put_msg_delayed(namespace, 'q1', msg, 2, cb), 1000),
+      ], (err, allres) => {
+        allres[0].should.eql(msg);
 
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(3000, 100);
@@ -311,7 +304,7 @@ _.forEach([
       });
     });
 
-    it('does push-delayed + deny + pop ok', function (done) {
+    it('does push-delayed + deny + pop ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -322,22 +315,11 @@ _.forEach([
       };
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {
-          put_msg_delayed(namespace, 'q1', msg, 2, cb)
-        },
-        function (cb) {
-          setTimeout(cb, 1000)
-        },
-        function (cb) {
-          get_msg(namespace, 'q1', cb)
-        },
-      ], function (err, allres) {
-
-        allres[2].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
+        cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
+        cb => setTimeout(cb, 1000),
+        cb => get_msg(namespace, 'q1', cb),
+      ], (err, allres) => {
+        allres[2].should.eql(msg);
 
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(2000, 100);

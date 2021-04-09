@@ -128,6 +128,18 @@ function put_msg(namespace, q, msg, cb) {
     });
 }
 
+function put_msg_hdrs (namespace, q, msg, hdrs, cb) {
+  request(theApp)
+    .put('/q/' + namespace + '/' + q)
+    .set (hdrs)
+    .send(msg)
+    .auth('test', 'toast')
+    .expect(200)
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
 function put_msg_delayed(namespace, q, msg, delay, cb) {
   request(theApp)
     .put('/q/' + namespace + '/' + q)
@@ -152,6 +164,16 @@ function get_msg(namespace, q, cb) {
     });
 }
 
+function get_msg_hdrs (namespace, q, cb) {
+  request(theApp)
+    .get('/q/' + namespace + '/' + q)
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, {body: res && res.body, text: res && res.text,  hdrs: res && res.headers});
+    });
+}
+
 function reserve_msg(namespace, q, cb) {
   request(theApp)
     .get('/q/' + namespace + '/' + q)
@@ -160,6 +182,17 @@ function reserve_msg(namespace, q, cb) {
     .auth('test', 'toast')
     .end(function (err, res) {
       cb(err, res && res.body);
+    });
+}
+
+function reserve_msg_hdrs(namespace, q, cb) {
+  request(theApp)
+    .get('/q/' + namespace + '/' + q)
+    .query ({reserve: 1})
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, {body: res && res.body, text: res && res.text,  hdrs: res && res.headers});
     });
 }
 
@@ -260,25 +293,25 @@ _.forEach([
   'mongo_tape',
   'mongo_pipeline',
   'bucket_mongo_safe'
-], function (namespace) {
-  describe('REST reserve-commit-rollback operations on queue namespace ' + namespace, function () {
-    before(function (done) {
+], namespace =>{
+  describe('REST reserve-commit-rollback operations on queue namespace ' + namespace, () => {
+    before (done => {
       var scope = new Scope ();
-      scope.init (config, {}, function (err) {
+      scope.init (config, {}, err => {
         if (err) return done (err);
-        BaseApp(config, {scope, metrics}, function () {}, function (err, app) {
+        BaseApp(config, {scope, metrics}, () => {}, (err, app) => {
           theApp = app;
           done(err);
         });
       });
     });
 
-    after(function (done) {
+    after (done => {
       theApp.locals.Prometheus.register.clear();
       done();
     });
 
-    it('does reserve+commit ok', function (done) {
+    it('does reserve+commit ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -291,21 +324,15 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg(namespace, 'q1', msg, cb)},
-        function (cb) {
-          reserve_msg(namespace, 'q1', function (err, res) {
-            id = res._id;
-            cb (err, res);
-          });
-        },
-        function (cb) {setTimeout (cb, 1000)},
-        function (cb) {commit_msg(namespace, 'q1', id, cb)},
-      ], function (err, allres) {
-        allres[1].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
+        cb => put_msg(namespace, 'q1', msg, cb),
+        cb => reserve_msg_hdrs (namespace, 'q1', (err, res) => {
+          id = res.hdrs['x-ks-id'];
+          cb (err, res.body);
+        }),
+        cb => setTimeout (cb, 1000),
+        cb => commit_msg(namespace, 'q1', id, cb),
+      ], (err, allres) => {
+        allres[1].should.eql(msg);
 
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 1000);
@@ -314,7 +341,7 @@ _.forEach([
       });
     });
 
-    it('does reserve+rollback+get ok', function (done) {
+    it('does reserve+rollback+get ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -327,37 +354,26 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg(namespace, 'q1', msg, cb)},
-        function (cb) {
-          reserve_msg(namespace, 'q1', function (err, res) {
-            id = res._id;
-            cb (err, res);
-          });
-        },
-        function (cb) {setTimeout (cb, 1000)},
-        function (cb) {rollback_msg(namespace, 'q1', id, cb)},
-        function (cb) {get_msg(namespace, 'q1', cb)},
-      ], function (err, allres) {
+        cb => put_msg(namespace, 'q1', msg, cb),
+        cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
+          id = res.hdrs['x-ks-id'];
+          cb (err, res.body);
+        }),
+        cb =>setTimeout (cb, 1000),
+        cb => rollback_msg(namespace, 'q1', id, cb),
+        cb => get_msg(namespace, 'q1', cb),
+      ],(err, allres) => {
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 1100);
 
-        allres[1].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
-
-        allres[4].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 1
-        });
+        allres[1].should.eql (msg);
+        allres[4].should.eql (msg);
 
         done(err);
       });
     });
 
-    it('causes reserve+reserve+rollback to go on second consumer ok', function (done) {
+    it('causes reserve+reserve+rollback to go on second consumer ok', done => {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -371,54 +387,43 @@ _.forEach([
       var passes = 0;
 
       async.parallel([
-        function (cb) {
+        cb => {
           var id;
           var commit = false;
 
           async.series ([
-            function (cb) {
-              reserve_msg(namespace, 'q1', function (err, res) {
-                id = res._id;
-                passes++;
-                if (passes == 1) commit = false;
-                else commit = true;
-                cb (err, res);
-              });
-            },
-            function (cb) {setTimeout (cb, 1000)},
-            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, commit, cb)},
+            cb => reserve_msg_hdrs (namespace, 'q1', (err, res) => {
+              id = res.hdrs['x-ks-id'];
+              passes++;
+              if (passes == 1) commit = false;
+              else commit = true;
+              cb (err, res.body);
+            }),
+            cb => setTimeout (cb, 1000),
+            cb => commit_or_rollback_msg (namespace, 'q1', id, commit, cb),
           ], cb);
         },
-        function (cb) {
+        cb => {
           var id;
           var commit;
           async.series ([
-            function (cb) {setTimeout (cb, 1000)},
-            function (cb) {
-              reserve_msg(namespace, 'q1', function (err, res) {
-                id = res._id;
-                passes++;
-                if (passes == 1) commit = false;
-                else commit = true;
-                cb (err, res);
-              });
-            },
-            function (cb) {setTimeout (cb, 1000)},
-            function (cb) {commit_or_rollback_msg (namespace, 'q1', id, commit, cb)},
+            cb => setTimeout (cb, 1000),
+            cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
+              if (err) return cb (err);
+              id = res.hdrs['x-ks-id'];
+              passes++;
+              if (passes == 1) commit = false;
+              else commit = true;
+              cb (err, res.body);
+            }),
+            cb => setTimeout (cb, 1000),
+            cb => commit_or_rollback_msg (namespace, 'q1', id, commit, cb),
           ], cb);
         },
-        function (cb) {put_msg_delayed(namespace, 'q1', msg, 2, cb)},
-      ], function (err, allres) {
-
-        allres[0][0].should.match({
-          _id: /.+/,
-          payload: msg,
-        });
-
-        allres[1][1].should.match({
-          _id: /.+/,
-          payload: msg,
-        });
+        cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
+      ], (err, allres) => {
+        allres[0][0].should.eql(msg);
+        allres[1][1].should.eql(msg);
 
 //        var t1 = new Date().getTime();
 //        (t1 - t0).should.be.approximately(4000, 100);
@@ -440,21 +445,15 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg_delayed(namespace, 'q1', msg, 2, cb)},
-        function (cb) {
-          reserve_msg(namespace, 'q1', function (err, res) {
-            id = res._id;
-            cb (err, res);
-          });
-        },
-        function (cb) {setTimeout (cb, 1000)},
-        function (cb) {commit_msg(namespace, 'q1', id, cb)},
-      ], function (err, allres) {
-        allres[1].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
+        cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
+        cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
+          id = res.hdrs['x-ks-id'];
+          cb (err, res.body);
+        }),
+        cb => setTimeout (cb, 1000),
+        cb => commit_msg(namespace, 'q1', id, cb),
+      ],  (err, allres) => {
+        allres[1].should.eql(msg);
 
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(3000, 100);
@@ -462,6 +461,7 @@ _.forEach([
         done(err);
       });
     });
+
 
     it('honors rollback with custon delay', function (done) {
       var msg = {
@@ -476,31 +476,20 @@ _.forEach([
       var id;
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {put_msg(namespace, 'q1', msg, cb)},
-        function (cb) {
-          reserve_msg(namespace, 'q1', function (err, res) {
-            id = res._id;
-            cb (err, res);
-          });
-        },
-        function (cb) {setTimeout (cb, 1000)},
-        function (cb) {rollback_msg_delay(namespace, 'q1', id, 2000, cb)},
-        function (cb) {get_msg(namespace, 'q1', cb)},
-      ], function (err, allres) {
+        cb => put_msg(namespace, 'q1', msg, cb),
+        cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
+          id = res.hdrs['x-ks-id'];
+          cb (err, res.body);
+        }),
+        cb => setTimeout (cb, 1000),
+        cb => rollback_msg_delay(namespace, 'q1', id, 2000, cb),
+        cb => get_msg(namespace, 'q1', cb),
+      ], (err, allres) => {
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(3000, 1000);
 
-        allres[1].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 0
-        });
-
-        allres[4].should.match({
-          _id: /.+/,
-          payload: msg,
-//          tries: 1
-        });
+        allres[1].should.eql(msg);
+        allres[4].should.eql(msg);
 
         done(err);
       });
@@ -517,8 +506,8 @@ _.forEach([
       };
 
       async.series([
-        function (cb) {rollback_msg_unknown (namespace, 'q1', '112233445566778899001122', cb)},
-      ], function (err, allres) {
+        cb => rollback_msg_unknown (namespace, 'q1', '112233445566778899001122', cb),
+      ], (err, allres) => {
         should(err).equal (null);
         allres[0].status.should.equal (404)
         done(err);

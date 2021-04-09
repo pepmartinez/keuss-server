@@ -1,5 +1,4 @@
 var express =    require ('express');
-var bodyParser = require ('body-parser');
 var path =       require ('path');
 var basicAuth =  require ('express-basic-auth');
 var Log =        require ('winston-log-space');
@@ -12,6 +11,8 @@ function app (config, context, extra_init, cb) {
   var app = express ();
   var logger = Log.logger ('app');
 
+  app.set ('x-powered-by', false);
+  app.set ('etag', false);
   app.set ('views', path.join (__dirname, 'views'));
   app.set ('view engine', 'pug');
 
@@ -37,9 +38,6 @@ function app (config, context, extra_init, cb) {
   }));
 
   app.use ('/public', express.static (path.join (__dirname, 'public')));
-  app.use (bodyParser.urlencoded ({extended: true}));
-  app.use (bodyParser.json ());
-
   app.use ('/q', routes_q (config, context));
 
   // main page

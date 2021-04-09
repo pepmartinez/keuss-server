@@ -353,7 +353,7 @@ _.forEach([
               destination: '__deadletter__',
               'x-mature': /.+/,
               'x-tries': /.+/,
-              'content-type': 'application/json ; charset=utf8',
+              'content-type': /^application\/json/,
               'content-length': 46
             });
 

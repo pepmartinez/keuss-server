@@ -125,6 +125,18 @@ function put_msg(namespace, q, msg, cb) {
     });
 }
 
+function put_msg_hdrs (namespace, q, msg, hdrs, cb) {
+  request(theApp)
+    .put('/q/' + namespace + '/' + q)
+    .set (hdrs)
+    .send(msg)
+    .auth('test', 'toast')
+    .expect(200)
+    .end(function (err, res) {
+      cb(err, res && res.body);
+    });
+}
+
 function get_msg(namespace, q, cb) {
   request(theApp)
     .get('/q/' + namespace + '/' + q)
@@ -132,6 +144,16 @@ function get_msg(namespace, q, cb) {
     .auth('test', 'toast')
     .end(function (err, res) {
       cb(err, res && res.body);
+    });
+}
+
+function get_msg_hdrs (namespace, q, cb) {
+  request(theApp)
+    .get('/q/' + namespace + '/' + q)
+    .expect(200)
+    .auth('test', 'toast')
+    .end(function (err, res) {
+      cb(err, {body: res && res.body, text: res && res.text,  hdrs: res && res.headers});
     });
 }
 
@@ -255,7 +277,7 @@ _.forEach([
     });
 
 
-    it('does push/pop ok', function (done) {
+    it('does push/pop of json body ok', function (done) {
       var msg = {
         a: 'aaa',
         b: 666,
@@ -264,30 +286,71 @@ _.forEach([
           cb: {}
         }
       };
+
       async.series([
-        function (cb) {
-          put_msg(namespace, 'q1', msg, cb)
-        },
-        function (cb) {
-          get_msg(namespace, 'q1', cb)
-        },
-      ], function (err, allres) {
-        allres[1].should.match({
-          payload: msg,
-//          tries: 0
+        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '555'}, cb),
+        cb => get_msg_hdrs(namespace, 'q1', cb)
+      ], (err, allres) => {
+        allres[1].body.should.eql(msg);
+        allres[1].hdrs.should.match ({
+          'x-ks-tries': /.+/,
+          'x-ks-mature': /.+Z$/,
+          'x-ks-id': /.+/,
+          'content-type': /^application\/json/,
+          'content-length': '46',
         });
 
         done(err);
       });
     });
 
+
+    it('does push/pop of text body ok', function (done) {
+      var msg = 'qwertyuiop';
+
+      async.series([
+        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'content-type': 'text/plain'}, cb),
+        cb => get_msg_hdrs(namespace, 'q1', cb)
+      ], (err, allres) => {
+        allres[1].text.should.eql(msg);
+        allres[1].hdrs.should.match ({
+          'x-ks-tries': '0',
+          'x-ks-mature': /.+Z$/,
+          'x-ks-id': /.+/,
+          'content-type': /^text\//,
+          'content-length': '10',
+        });
+
+        done(err);
+      });
+    });
+
+
+    it('does push/pop of Buffer body ok', function (done) {
+      var msg = Buffer.from ([0x10, 0x11, 0x12]);
+
+      async.series([
+        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'content-type': 'bin/data'}, cb),
+        cb => get_msg_hdrs(namespace, 'q1', cb)
+      ], (err, allres) => {
+        allres[1].body.should.eql(msg);
+        allres[1].hdrs.should.match ({
+          'x-ks-tries': '0',
+          'x-ks-mature': /.+Z$/,
+          'x-ks-id': /.+/,
+          'content-type': 'application/octet-stream',
+          'content-length': '3',
+        });
+        done(err);
+      });
+    });
+
+
     it('does pop + timeout ok', function (done) {
       var t0 = new Date().getTime();
       async.series([
-        function (cb) {
-          get_msg_timeout(namespace, 'q1', 2000, cb)
-        }
-      ], function (err, allres) {
+        cb => get_msg_timeout(namespace, 'q1', 2000, cb)
+      ], (err, allres) => {
         allres[0].should.match({
           timeout: true,
           tid: /.+/
@@ -311,19 +374,13 @@ _.forEach([
       };
       var t0 = new Date().getTime();
       async.parallel([
-        function (cb) {
-          get_msg(namespace, 'q1', cb);
-        },
-        function (cb) {
-          setTimeout(function () {
-            put_msg(namespace, 'q1', msg, cb);
-          }, 1000);
-        }
-      ], function (err, allres) {
+        cb => get_msg_hdrs(namespace, 'q1', cb),
+        cb => setTimeout(() => put_msg (namespace, 'q1', msg, cb), 1000),
+      ], (err, allres) => {
 
-        allres[0].should.match({
-          payload: msg,
-//          tries: 0
+        allres[0].body.should.eql (msg);
+        allres[0].hdrs.should.match({
+          'x-ks-tries': '0'
         });
 
         var t1 = new Date().getTime();
