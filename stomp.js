@@ -555,11 +555,18 @@ class STOMP {
 
     var x_next_t =  parseInt (frm.header ('x-next-t'));
     var x_delta_t = parseInt (frm.header ('x-delta-t'));
-    var opts = {};
+    var opts = {
+      hdrs: {}
+    };
 
     if (x_next_t) opts.mature = x_next_t;
     if (x_delta_t) opts.delay = Math.floor(x_delta_t / 1000);
-    if (ct) opts.hdrs = {'content-type': ct};
+    if (ct) opts.hdrs['content-type'] =  ct;
+
+    // pass x-ks-hdr-* extra headers
+    _.each (frm.headers(), (v, k) => {
+      if (k.match (/^x-ks-hdr-.+/)) opts.hdrs[k.substr (9)] = v;
+    });
 
     var q = this._get_queue (frm.destination);
     if (_.isString (q)) return this._error_in_session (sess, frm, q);
@@ -625,12 +632,19 @@ class STOMP {
 
       var m_frm = new SF.Frame ();
       m_frm.command (SF.Commands.MESSAGE);
+
       m_frm.header ('subscription', frm.id);
       m_frm.header ('message-id', frm.id + '@' + (item._id ? item._id.toString() : 'none'));
       m_frm.header ('destination', q.name());
       m_frm.header ('x-mature', item.mature.toString ());
       m_frm.header ('x-tries', item.tries + '');
       m_frm.header ('content-type', item.hdrs['content-type'] ? item.hdrs['content-type'] : 'application/json ; charset=utf8');
+
+      // pass x-ks-hdr-* extra headers
+      _.each (item.hdrs, (v, k) => {
+        if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v);
+      });
+
       var body = item.payload;
       if (_.isObject (body) && (!_.isBuffer (body))) body = JSON.stringify (body);
       m_frm.body (body);

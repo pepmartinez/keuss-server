@@ -235,6 +235,7 @@ _.forEach([
       async.series([
         cb => put_msg(namespace, 'q1', msg, cb),
         cb => get_msg(namespace, 'q1', cb),
+        cb => setTimeout (cb, 1000)
       ], (err, allres) => {
         allres[1].should.eql(msg);
         done(err);
@@ -271,11 +272,12 @@ _.forEach([
       async.series([
         cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
         cb => get_msg(namespace, 'q1', cb),
+        cb => setTimeout (cb, 1000)
       ], (err, allres) => {
         allres[1].should.eql(msg);
 
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(2000, 100);
+        (t1 - t0).should.be.approximately(3000, 100);
 
         done(err);
       });
@@ -318,11 +320,12 @@ _.forEach([
         cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
         cb => setTimeout(cb, 1000),
         cb => get_msg(namespace, 'q1', cb),
+        cb => setTimeout (cb, 1000)
       ], (err, allres) => {
         allres[2].should.eql(msg);
 
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(2000, 100);
+        (t1 - t0).should.be.approximately(3000, 100);
 
         done(err);
       });

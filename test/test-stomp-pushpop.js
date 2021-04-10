@@ -254,6 +254,13 @@ _.forEach([
           if (err) return done(err);
 
           message.headers['content-type'].should.equal ('text/plain');
+          message.headers['x-ks-hdr-a'].should.equal ('1234');
+          message.headers['x-tries'].should.equal ('0');
+          should.exist (message.headers['message-id']);
+          should.exist (message.headers['subscription']);
+          should.exist (message.headers['x-mature']);
+          should.exist (message.headers['destination']);
+
           message.readString ('utf-8', (err, body) => {
             if (err) return done(err);
             body.should.eql (msg);
@@ -265,7 +272,9 @@ _.forEach([
         // send it
         var frame = cl.send ({
           'destination': q,
-          'content-type': 'text/plain'
+          'content-type': 'text/plain',
+          a: '666',
+          'x-ks-hdr-a': '1234'
         }, {onReceipt: () => {}});
         frame.write (msg);
         frame.end ();

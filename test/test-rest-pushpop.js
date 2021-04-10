@@ -228,11 +228,11 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
 _.forEach([
   'redis_oq',
   'redis_list',
+  'bucket_mongo_safe',
   'mongo_simple',
   'mongo_tape',
   'mongo_pipeline',
   'bucket_mongo',
-  'bucket_mongo_safe'
 ], function (namespace) {
   describe('REST push/pop operations on queue namespace ' + namespace, function () {
     before(function (done) {
@@ -288,7 +288,7 @@ _.forEach([
       };
 
       async.series([
-        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '555'}, cb),
+        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'x-ks-hdr-a': '555', 'x-ks-hdr-b': 555}, cb),
         cb => get_msg_hdrs(namespace, 'q1', cb)
       ], (err, allres) => {
         allres[1].body.should.eql(msg);
@@ -296,9 +296,12 @@ _.forEach([
           'x-ks-tries': /.+/,
           'x-ks-mature': /.+Z$/,
           'x-ks-id': /.+/,
+          'x-ks-hdr-a': '555',
+          'x-ks-hdr-b': '555',
           'content-type': /^application\/json/,
           'content-length': '46',
         });
+        should (allres[1].hdrs.a).be.undefined();
 
         done(err);
       });
@@ -309,7 +312,7 @@ _.forEach([
       var msg = 'qwertyuiop';
 
       async.series([
-        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'content-type': 'text/plain'}, cb),
+        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'x-ks-hdr-a': '555', 'x-ks-hdr-b': 555, 'content-type': 'text/plain-str'}, cb),
         cb => get_msg_hdrs(namespace, 'q1', cb)
       ], (err, allres) => {
         allres[1].text.should.eql(msg);
@@ -317,9 +320,12 @@ _.forEach([
           'x-ks-tries': '0',
           'x-ks-mature': /.+Z$/,
           'x-ks-id': /.+/,
-          'content-type': /^text\//,
+          'x-ks-hdr-a': '555',
+          'x-ks-hdr-b': '555',
+          'content-type': /^text\/plain-str/,
           'content-length': '10',
         });
+        should (allres[1].hdrs.a).be.undefined();
 
         done(err);
       });
@@ -330,7 +336,7 @@ _.forEach([
       var msg = Buffer.from ([0x10, 0x11, 0x12]);
 
       async.series([
-        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'content-type': 'bin/data'}, cb),
+        cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'x-ks-hdr-a': '555', 'x-ks-hdr-b': 555, 'content-type': 'application/octet-stream'}, cb),
         cb => get_msg_hdrs(namespace, 'q1', cb)
       ], (err, allres) => {
         allres[1].body.should.eql(msg);
@@ -338,9 +344,13 @@ _.forEach([
           'x-ks-tries': '0',
           'x-ks-mature': /.+Z$/,
           'x-ks-id': /.+/,
+          'x-ks-hdr-a': '555',
+          'x-ks-hdr-b': '555',
           'content-type': 'application/octet-stream',
           'content-length': '3',
         });
+        should (allres[1].hdrs.a).be.undefined();
+
         done(err);
       });
     });

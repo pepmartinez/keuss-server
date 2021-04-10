@@ -159,7 +159,16 @@ function get_router(config, context) {
   //////////////////////////////////////////////////////////////////////////////////////
   function _push_in_queue(req, res) {
     var q = req.__q;
-    var opts = req.query || {};
+    var opts = req.query ? _.clone (req.query) : {};
+
+    // pass ctype, x-ks-hdr-*
+    opts.hdrs = {};
+
+    if (req.headers['content-type']) opts.hdrs['content-type'] = req.headers['content-type'];
+
+    _.each (req.headers, (v, k) => {
+      if (k.match (/^x-ks-hdr-.+/)) opts.hdrs[k.substr (9)] = v;
+    });
 
     // groom req.body
     if (typeis (req, ['json'])) {
@@ -225,16 +234,19 @@ function get_router(config, context) {
           metric.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         }
       } else {
-
-//        console.log ('read from keuss', result)
-        res
-        .set ({
+        const h = {
           'x-ks-tries': result.tries,
           'x-ks-mature': result.mature.toISOString(),
           'x-ks-id': result._id
-        })
-        .send(result.payload);
+        };
 
+        // extract ctype & x-ks-hdr-*
+        _.each (result.hdrs, (v, k) => {
+          if (k == 'content-type') h[k] = v;
+          else h['x-ks-hdr-' + k] = v;
+        });
+
+        res.set (h).send(result.payload);
         metric.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
       }
     });
