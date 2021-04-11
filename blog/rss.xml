@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Keuss Server Job Queues Blog</title>
+        <link>https://pepmartinez.github.io/keuss-server/blog</link>
+        <description>Keuss Server Job Queues Blog</description>
+        <lastBuildDate>Tue, 04 Aug 2020 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <item>
+            <title><![CDATA[New website!]]></title>
+            <link>https://pepmartinez.github.io/keuss-server/keuss-server/blog/2020/08/04/welcome</link>
+            <guid>New website!</guid>
+            <pubDate>Tue, 04 Aug 2020 00:00:00 GMT</pubDate>
+            <description><![CDATA[We got a brand new site for Keuss Server, powered by Docusaurus v2. Chances are, if you're reading this, you already found the site...]]></description>
+        </item>
+    </channel>
+</rss>
