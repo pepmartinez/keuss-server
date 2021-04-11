@@ -11,7 +11,7 @@ sidebar_label: Quickstart
 Easiest way is to use the docker image available at [docker hub](https://hub.docker.com/repository/docker/pepmartinez/keuss-server):
 
 ```sh
-docker run --rm -d --net host --name keuss-server pepmartinez/keuss-server:1.5.1
+docker run --rm -d --net host --name keuss-server pepmartinez/keuss-server:1.6.0
 ```
 
 The docker image comes with a default (suitable for test & demo) configuration which requires both a redis server and a mongodb server running in localhost (hence the `--net host`).

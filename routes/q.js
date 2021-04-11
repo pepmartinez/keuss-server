@@ -1,7 +1,8 @@
-var express = require('express');
-var async =   require('async');
-var _ =       require('lodash');
-
+var express =    require ('express');
+var async =      require ('async');
+var _ =          require ('lodash');
+var bodyParser = require ('body-parser');
+var typeis =     require ('type-is');
 
 //////////////////////////////////////////////////////////////////////////////////////
 function _list_queues_tree(scope, req, res) {
@@ -158,9 +159,31 @@ function get_router(config, context) {
   //////////////////////////////////////////////////////////////////////////////////////
   function _push_in_queue(req, res) {
     var q = req.__q;
-    var opts = req.query || {};
+    var opts = req.query ? _.clone (req.query) : {};
 
-    q.push(req.body || req.text, opts, (err, id) => {
+    // pass ctype, x-ks-hdr-*
+    opts.hdrs = {};
+
+    if (req.headers['content-type']) opts.hdrs['content-type'] = req.headers['content-type'];
+
+    _.each (req.headers, (v, k) => {
+      if (k.match (/^x-ks-hdr-.+/)) opts.hdrs[k.substr (9)] = v;
+    });
+
+    // groom req.body
+    if (typeis (req, ['json'])) {
+      try {
+        req.body = JSON.parse (req.body);
+      }
+      catch (e) {
+        return res.status (500).send ('cannot parse body as json');
+      }
+    }
+    else if (typeis (req, ['text/*'])) {
+      req.body = req.body.toString ();
+    }
+
+    q.push (req.body || req.text, opts, (err, id) => {
       if (err) {
         res.status(500).send(err);
       } else {
@@ -211,7 +234,19 @@ function get_router(config, context) {
           metric.labels ('rest', req.__q.ns(), req.__q.name(), 'ko').inc ();
         }
       } else {
-        res.send(result);
+        const h = {
+          'x-ks-tries': result.tries,
+          'x-ks-mature': result.mature.toISOString(),
+          'x-ks-id': result._id
+        };
+
+        // extract ctype & x-ks-hdr-*
+        _.each (result.hdrs, (v, k) => {
+          if (k == 'content-type') h[k] = v;
+          else h['x-ks-hdr-' + k] = v;
+        });
+
+        res.set (h).send(result.payload);
         metric.labels ('rest', req.__q.ns(), req.__q.name(), 'ok').inc ();
       }
     });
@@ -326,15 +361,17 @@ function get_router(config, context) {
     next();
   });
 
+  const json_mw = bodyParser.json ();
+  const raw_mw =  bodyParser.raw ({type: () => true});
 
-  router.get ('/',                        _get_queues);
-  router.get ('/:namespace',              _get_queues_of_namespace);
-  router.get ('/:namespace/:q/status',    _get_queue_status);
-  router.get ('/:namespace/:q/consumers', _get_queue_consumers);
-  router.get ('/:namespace/:q/paused',    _get_queue_paused);
+  router.get ('/',                        [json_mw], _get_queues);
+  router.get ('/:namespace',              [json_mw], _get_queues_of_namespace);
+  router.get ('/:namespace/:q/status',    [json_mw], _get_queue_status);
+  router.get ('/:namespace/:q/consumers', [json_mw], _get_queue_consumers);
+  router.get ('/:namespace/:q/paused',    [json_mw], _get_queue_paused);
 
-  router.put  ('/:namespace/:q', _push_in_queue);
-  router.post ('/:namespace/:q', _push_in_queue);
+  router.put  ('/:namespace/:q', [raw_mw], _push_in_queue);
+  router.post ('/:namespace/:q', [raw_mw], _push_in_queue);
   router.get  ('/:namespace/:q', _pop_from_queue);
 
   router.delete ('/:namespace/:q/consumer/:tid', _cancel_pop);

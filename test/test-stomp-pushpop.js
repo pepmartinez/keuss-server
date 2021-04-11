@@ -175,7 +175,7 @@ _.forEach([
   'mongo_tape',
   'bucket_mongo',
   'bucket_mongo_safe'
-], function (namespace) {
+], namespace => {
   describe('STOMP push/pop operations on queue namespace ' + namespace, () => {
 
     before (done => async.series ([
@@ -197,7 +197,8 @@ _.forEach([
       stomp_server.end (() => setTimeout (done, 1000));
     });
 
-    it('does push/pop ok, ack to auto', function (done) {
+
+    it('does push/pop ok, ack to auto', done => {
       var q = '/q/' + namespace + '/stomp_test_1';
       var msg = {
         a: 'aaa',
@@ -208,7 +209,7 @@ _.forEach([
         }
       };
 
-      stompcl (function (err, cl) {
+      stompcl ((err, cl) => {
         if (err) return done(err);
 
         var subscribeHeaders = {
@@ -216,10 +217,10 @@ _.forEach([
           'ack': 'auto'
         };
 
-        cl.subscribe(subscribeHeaders, function(err, message) {
+        cl.subscribe(subscribeHeaders, (err, message) => {
           if (err) return done(err);
 
-          message.readString ('utf-8', function (err, body) {
+          message.readString ('utf-8', (err, body) => {
             if (err) return done(err);
             JSON.parse (body).should.eql (msg);
             cl.disconnect();
@@ -228,9 +229,105 @@ _.forEach([
         });
 
         // send it
-        send_obj (cl, q, msg, function (r) {});
+        send_obj (cl, q, msg, r => {});
       });
     });
 
+
+    it('does push/pop ok with string content (ctype is text/plain)', done => {
+      var q = '/q/' + namespace + '/stomp_test_2';
+      var msg = 'qwertyuiopasdfghjkl';
+
+      stompcl ((err, cl) => {
+        if (err) return done(err);
+
+        var subscribeHeaders = {
+          'destination': q,
+          'ack': 'auto'
+        };
+
+        cl.on ('error', err => {
+          done (err)
+        })
+
+        cl.subscribe(subscribeHeaders, (err, message) => {
+          if (err) return done(err);
+
+          message.headers['content-type'].should.equal ('text/plain');
+          message.headers['x-ks-hdr-a'].should.equal ('1234');
+          message.headers['x-tries'].should.equal ('0');
+          should.exist (message.headers['message-id']);
+          should.exist (message.headers['subscription']);
+          should.exist (message.headers['x-mature']);
+          should.exist (message.headers['destination']);
+
+          message.readString ('utf-8', (err, body) => {
+            if (err) return done(err);
+            body.should.eql (msg);
+            cl.disconnect();
+            done();
+          });
+        });
+
+        // send it
+        var frame = cl.send ({
+          'destination': q,
+          'content-type': 'text/plain',
+          a: '666',
+          'x-ks-hdr-a': '1234'
+        }, {onReceipt: () => {}});
+        frame.write (msg);
+        frame.end ();
+      });
+    });
+
+
+/*
+    it('does push/pop ok with Buffer content (ctype is bin/bytes)', done => {
+      var q = '/q/' + namespace + '/stomp_test_2';
+      var msg = Buffer.from ([0x10, 0x11, 0x12, 0x13, 0x00, 0x15, 0x16, 0x17]);
+
+      stompcl ((err, cl) => {
+        if (err) return done(err);
+
+        var subscribeHeaders = {
+          'destination': q,
+          'ack': 'auto'
+        };
+
+        cl.on ('error', err => {
+          done (err)
+        })
+
+        cl.subscribe(subscribeHeaders, (err, message) => {
+          if (err) return done(err);
+
+          message.headers['content-type'].should.equal ('bin/bytes');
+
+          message.on('readable', () => {
+            var b = message.read ().slice (0,8);
+            cl.destroy();
+            b.should.eql (msg)
+            done();
+          });
+
+          message.on('error', err => {
+            cl.destroy();
+            done(err);
+          });
+
+        });
+
+        // send it
+        var frame = cl.send ({
+          'destination': q,
+          'content-type': 'bin/bytes',
+          'content-length': 9
+        }, {onReceipt: () => {}});
+        frame.write (msg);
+        frame.end ();
+      });
+    });
+*/
   });
 });

@@ -35,6 +35,8 @@ Inserts an object into a queue. All parameters in the querystring are passed to 
 * `delay`: delay in seconds to calculate the mature timestamp, if mature is not provided. For example, a delay=120 guarantees the element won't be extracted until 120 secs have elapsed at least
 * `tries`: value to initialize the retry counter, defaults to 0 (still no retries)
 
+Any type of body is supported (json, string, Buffer); for that matter, the `content-type`header is stored aonlgside the body as a keuss element header; also, any http header with name starting with `x-ks-hdr-` is also stored
+
 ### Get/reserve from queue: `GET /q/:namespace/:queue`
 
 Attempts a `pop` or a `reserve` on a queue. If there is no eligible elements the call would block indefinitely, *to* milliseconds passes, or until a cancel operation is called.
@@ -43,6 +45,13 @@ Admits the following query parameters:
 * `to`: timeout in millisecs if the operation needs to block. Blocks indefinitely by default
 * `tid`: optional identifier for the consumer, needed if `cancel` on this call is to be supported. By defaut no tid is used (and therefore no `cancel` is possible)
 * `reserve`: if truthy, the operation attempts a `reserve` rather than a `pop`. By default, a `pop` is attempted
+
+The response body will be the element body, as it was inserted (json object, string, Buffer) and with its original `content-type`. Any element header (for example, those passed via REST or STOMP with name starting with `x-ks-hdr-`) will be added as response headers (prefixed by `x-ks-hdr-`)
+
+Other response headers are:
+* `x-ks-tries`: failed reserve tries (ie, rolled back) so far
+* `x-ks-mature`: mature timestamp of the element,
+* `x-ks-id`: element id, to be used later on at commit/rollback
 
 ### Get pending get/reserve operations: `DELETE /q/:type/:q/consumers`
 
@@ -54,11 +63,11 @@ Cancels a pending/blocked `get`/`reserve` call. To do so, such `get`/`reserve` c
 
 ### Commit in queue: `PATCH /q/:type/:q/commit/:id`
 
-Commits a previous `reserve` operation. `id` is the `_id` inside the object returned in a previous commit
+Commits a previous `reserve` operation. `id` is the `x-ks-id` header returned in the reserve request
 
 ### Rollback in queue: `PATCH /q/:type/:q/rollback/:id`
 
-Rollbacks a previous `reserve` operation. `id` is the `_id` inside the object returned in a previous commit
+Rollbacks a previous `reserve` operation. `id` is the `x-ks-id` header returned in the reserve request
 Admits the following query parameters:
 
 * `delay`: delay in millisecs to apply to the rolled back object: it will be available for `get`/`reserve` after *delay* milliseconds. Defaults to 0, so rolled back elements are immediately available to others
