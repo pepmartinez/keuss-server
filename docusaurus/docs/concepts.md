@@ -47,7 +47,7 @@ Keuss-Server gets its configuration from a combination of js config files, envir
 * environment vars prefixed by `KS_`
 * cli flags
 * js file `etc/config.js`
-* js file `etc/config-${NODE_ENV}.js`
+* js file `etc/config-${KS_NODE_ENV}.js`
 
 Args and environment vars can be referenced in any of the js files
 

@@ -10,7 +10,7 @@ The included STOMP stack supports only version 1.2 of STOMP, with the following 
 
 * There is no support for transactions, so frames BEGIN, COMMIT and ABORT are not supported
 * On SUBSCRIBE, ack type *client* is not supported; you'd need to use *client-individual* and emit ack/nack for each message. Also, *client-individual* is also not supported on queues lacking reserve support (type redis:list)
-* The *content-type* is limited to be `application/json` only
+* Any type of body is allowed, not just string; for non-string bodies it is recommended to pass a `content-length` header to ensire bodies are read complete; also, the header `content-type` is kept and stored alongside the body (as keuss element headers)
 * On NACK frames:
   * A NACKed message will be delayed by 5 secs; that is, a NACKed message will not be reserved again (by any keuss client) until at least 5 secs have elapsed
   * There is no limit of retries
@@ -25,4 +25,5 @@ There are also a few additions on top of the standard STOMP:
 * Extra info in MESSAGE: some extra info is included on each MESSAGE frame returned, to ease retries and/or better management:
   * `x-mature`: ISO timestamp when the message became eligible for `pop`/`reserve` (mature)
   * `x-tries`: number of tries of this message. Each NACK increments this value, so this can be used in conjunction with `x-delta-t` to implement custom delays on failing elements, or limiting the number of retries
-  * There is no support for `auth` yet. User and password are simply ignored
+  * any header with name starting with `x-ks-hdr-` is stored alongside the body (as keuss element headers) and therefore passed along it
+* There is no support for `auth` yet. User and password are simply ignored

@@ -1,5 +1,5 @@
-# docker build -t pepmartinez/keuss-server:1.5.3 .
-# docker push pepmartinez/keuss-server:1.5.3
+# docker build -t pepmartinez/keuss-server:1.6.0 .
+# docker push pepmartinez/keuss-server:1.6.0
 
 FROM node:12.15.0-alpine
 
