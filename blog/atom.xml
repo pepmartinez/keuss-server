@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <id>https://pepmartinez.github.io/keuss-server/blog</id>
+    <id>https://pepmartinez.github.io/keuss-server/keuss-server/blog</id>
     <title>Keuss Server Job Queues Blog</title>
     <updated>2020-08-04T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
-    <link rel="alternate" href="https://pepmartinez.github.io/keuss-server/blog"/>
+    <link rel="alternate" href="https://pepmartinez.github.io/keuss-server/keuss-server/blog"/>
     <subtitle>Keuss Server Job Queues Blog</subtitle>
-    <icon>https://pepmartinez.github.io/keuss-server/img/favicon.ico</icon>
+    <icon>https://pepmartinez.github.io/keuss-server/keuss-server/img/favicon.ico</icon>
     <entry>
         <title type="html"><![CDATA[New website!]]></title>
         <id>New website!</id>
         <link href="https://pepmartinez.github.io/keuss-server/keuss-server/blog/2020/08/04/welcome"/>
         <updated>2020-08-04T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[We got a brand new site for Keuss Server, powered by Docusaurus v2. Chances are, if you're reading this, you already found the site...]]></summary>
+        <content type="html"><![CDATA[<p>We got a brand new site for Keuss Server, powered by <a href="https://v2.docusaurus.io">Docusaurus v2</a>. Chances are, if you&#x27;re reading this, you already found the site...</p><p>Good old README.md, as simple and convenient as it is, was becoming way too big and difficult to navigate. Also, it is not a proper site worth presenting to the world; hence the decision to add a small, simple enough site to Keuss Server</p>]]></content>
+        <author>
+            <name>Pep Martinez</name>
+            <uri>https://github.com/pepmartinez</uri>
+        </author>
     </entry>
 </feed>

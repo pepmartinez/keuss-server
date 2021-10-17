@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
     <channel>
         <title>Keuss Server Job Queues Blog</title>
-        <link>https://pepmartinez.github.io/keuss-server/blog</link>
+        <link>https://pepmartinez.github.io/keuss-server/keuss-server/blog</link>
         <description>Keuss Server Job Queues Blog</description>
         <lastBuildDate>Tue, 04 Aug 2020 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
@@ -13,6 +13,7 @@
             <guid>New website!</guid>
             <pubDate>Tue, 04 Aug 2020 00:00:00 GMT</pubDate>
             <description><![CDATA[We got a brand new site for Keuss Server, powered by Docusaurus v2. Chances are, if you're reading this, you already found the site...]]></description>
+            <content:encoded><![CDATA[<p>We got a brand new site for Keuss Server, powered by <a href="https://v2.docusaurus.io">Docusaurus v2</a>. Chances are, if you&#x27;re reading this, you already found the site...</p><p>Good old README.md, as simple and convenient as it is, was becoming way too big and difficult to navigate. Also, it is not a proper site worth presenting to the world; hence the decision to add a small, simple enough site to Keuss Server</p>]]></content:encoded>
         </item>
     </channel>
 </rss>
