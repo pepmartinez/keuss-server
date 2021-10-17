@@ -3,6 +3,9 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
+* v1.6.3:
+  * use keuss 1.6.6
+  * use stat counters for reserve, commit, rollback
 * v1.6.0:
   * use keuss 1.6.3
   * allows headers in queue elements

@@ -128,6 +128,22 @@ class Scope {
     }
   }
 
+  //////////////////////////////////////////////////
+  _create_metric_counter_q_global (id, help) {
+    let the_metric = this._context.promster.register.getSingleMetric('q_global_' + id);
+
+    if (the_metric) {
+      this._metrics['q_global_' + id] = the_metric;
+    }
+    else {
+      this._metrics['q_global_' + id] = new this._context.promster.Counter ({
+        name: 'q_global_' + id,
+        help: help,
+        labelNames: ['ns', 'q']
+      });
+    }
+  }
+
 
   //////////////////////////////////////////////////
   _create_metrics_g_global () {
@@ -139,6 +155,9 @@ class Scope {
     this._create_metric_gauge_q_global ('next_t',    'delta time to next due element');
     this._create_metric_gauge_q_global ('put',       'elements inserted in queue');
     this._create_metric_gauge_q_global ('get',       'elements extracted from queue');
+    this._create_metric_gauge_q_global ('reserve',   'elements reserved from queue');
+    this._create_metric_gauge_q_global ('commit',    'elements committed at queue');
+    this._create_metric_gauge_q_global ('rollback',  'elements rolled back at queue');
   }
 
 
@@ -158,8 +177,11 @@ class Scope {
       this._metrics.q_global_totalSize.labels (q.ns(), q.name()).set (res.totalSize);
       this._metrics.q_global_schedSize.labels (q.ns(), q.name()).set (res.schedSize);
 
-      if (_.isInteger (res.stats.put)) this._metrics.q_global_put.labels (q.ns(), q.name()).set (res.stats.put);
-      if (_.isInteger (res.stats.get)) this._metrics.q_global_get.labels (q.ns(), q.name()).set (res.stats.get);
+      if (_.isInteger (res.stats.put))      this._metrics.q_global_put.labels      (q.ns(), q.name()).set (res.stats.put);
+      if (_.isInteger (res.stats.get))      this._metrics.q_global_get.labels      (q.ns(), q.name()).set (res.stats.get);
+      if (_.isInteger (res.stats.reserve))  this._metrics.q_global_reserve.labels  (q.ns(), q.name()).set (res.stats.reserve);
+      if (_.isInteger (res.stats.commit))   this._metrics.q_global_commit.labels   (q.ns(), q.name()).set (res.stats.commit);
+      if (_.isInteger (res.stats.rollback)) this._metrics.q_global_rollback.labels (q.ns(), q.name()).set (res.stats.rollback);
 
       const delta = res.next_t ? (res.next_t.getTime() - new Date ().getTime ()) : 0;
       this._metrics.q_global_next_t.labels (q.ns(), q.name()).set (delta);

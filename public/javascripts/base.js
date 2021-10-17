@@ -111,14 +111,17 @@ $(function() {
     ajax: '/q?array=1',
     columns: [
       {data: 'id'},
-      {data: 'stats.put',     render: _render_num_dash},
-      {data: 'stats.get',     render: _render_num_dash},
-      {data: 'size',          render: _render_num_zero},
-      {data: 'totalSize',     render: _render_num_zero},
-      {data: 'schedSize',     render: _render_num_zero},
-      {data: 'resvSize',      render: _render_num_null},
-      {data: 'next_mature_t', render: _render_time_delta},
-      {data: 'paused',        render: _render_paused},
+      {data: 'stats.put',      render: _render_num_dash},
+      {data: 'stats.get',      render: _render_num_dash},
+      {data: 'stats.reserve',  render: _render_num_dash},
+      {data: 'stats.commit',   render: _render_num_dash},
+      {data: 'stats.rollback', render: _render_num_dash},
+      {data: 'size',           render: _render_num_zero},
+      {data: 'totalSize',      render: _render_num_zero},
+      {data: 'schedSize',      render: _render_num_zero},
+      {data: 'resvSize',       render: _render_num_null},
+      {data: 'next_mature_t',  render: _render_time_delta},
+      {data: 'paused',         render: _render_paused},
     ]
   });
 
