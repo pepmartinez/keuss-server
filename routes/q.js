@@ -313,9 +313,14 @@ function get_router(config, context) {
         return res.status(500).send(err);
       }
 
+      if (ret == 'deadletter') {
+        context.metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
+        return res.status(301).set ({'location': 'deadletter'}).send('id ' + req.params.id + ' moved to deadletter');
+      }
+      
       if (!ret) {
         context.metrics.keuss_q_rollback.labels ('rest', req.__q.ns(), req.__q.name(), 'notfound').inc ();
-        return res.status(404).send('id ' + req.params.id + ' cannot be rolled back');
+        return res.status(404).send('id ' + req.params.id + ' cannot be rolled back: not found');
       }
 
       res.send({});

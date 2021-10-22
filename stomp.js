@@ -111,14 +111,24 @@ class QConsumer {
     // rollback pending acks
     var next_t = new Date().getTime ();
     _.forEach (this._pending_acks, (val, id) => {
-      this._q.ko (val.msg, next_t, err => {
+      this._q.ko (val.msg, next_t, (err, res) => {
         if (err) {
           this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ko').inc ();
           logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', this._cid, id, '' + err);
         }
         else {
-          this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ok').inc ();
-          logger.verbose ('QConsumer %s: rolled back pending ack [%s]', this._cid, id);
+          if (res == 'deadletter') {
+            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'deadletter').inc ();
+            logger.verbose ('QConsumer %s: rolled back pending ack [%s] resulted in move-to-deadletter. No more retries will happen', this._cid, id);
+          }
+          else if (!res) {
+            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'notfound').inc ();
+            logger.error ('QConsumer %s: while rolling back pending ack [%s]: no such element', this._cid, id, '' + err);
+          }
+          else {
+            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ok').inc ();
+            logger.verbose ('QConsumer %s: rolled back pending ack [%s]', this._cid, id);
+          }
         }
       });
     });
@@ -151,12 +161,22 @@ class QConsumer {
 
     logger.debug ('QConsumer %s: nacking id [%s], next_t is %s', this._cid, id, new Date (next_t));
 
-    this._q.ko (this._pending_acks[id].msg, next_t, err => {
+    this._q.ko (this._pending_acks[id].msg, next_t, (err, res) => {
       delete this._pending_acks[id];
-      logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
+      logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d, rollback-result %o)', 
+                    this._cid, 
+                    this._wsize, 
+                    this._window_used (),
+                    res);
+
       this._window_release ();
       if (cb) cb (err);
-      this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : 'ok')).inc ();
+      let st = 'ok';
+      if (err) st = 'ko';
+      else if (res == 'deadletter') st = 'deadletter';
+      else if (!res) st = 'notfound';
+
+      this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : ((res === false) ? 'deadletter' : 'ok'))).inc ();
     });
   }
 

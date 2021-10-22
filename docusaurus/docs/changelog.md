@@ -3,6 +3,8 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
+* v1.6.4:
+  * use keuss 1.6.7
 * v1.6.3:
   * use keuss 1.6.6
   * use stat counters for reserve, commit, rollback
