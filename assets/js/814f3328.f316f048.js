@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkkeuss_server_docusaurus=self.webpackChunkkeuss_server_docusaurus||[]).push([[631],{5641:function(e){e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"New website!","permalink":"/keuss-server/blog/2020/08/04/welcome"}]}')}}]);
