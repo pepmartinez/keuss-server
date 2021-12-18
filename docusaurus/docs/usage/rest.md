@@ -37,6 +37,9 @@ Inserts an object into a queue. All parameters in the querystring are passed to 
 
 Any type of body is supported (json, string, Buffer); for that matter, the `content-type`header is stored aonlgside the body as a keuss element header; also, any http header with name starting with `x-ks-hdr-` is also stored
 
+Returns a json object with the following fields:
+* `id`: identifier of the inserted element
+
 ### Get/reserve from queue: `GET /q/:namespace/:queue`
 
 Attempts a `pop` or a `reserve` on a queue. If there is no eligible elements the call would block indefinitely, *to* milliseconds passes, or until a cancel operation is called.
@@ -71,6 +74,11 @@ Rollbacks a previous `reserve` operation. `id` is the `x-ks-id` header returned 
 Admits the following query parameters:
 
 * `delay`: delay in millisecs to apply to the rolled back object: it will be available for `get`/`reserve` after *delay* milliseconds. Defaults to 0, so rolled back elements are immediately available to others
+
+### Remove from queue: `DELETE /q/:type/:q/:id`
+Removes an element from a queue, by id. The id is the one returned in the json response body at insertion
+
+Returns a `HTTP 204` upon success
 
 ### Pause all consumers to a queue: `PATCH /q/:namespace/:q/pause`
 
