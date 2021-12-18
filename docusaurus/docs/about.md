@@ -2,6 +2,7 @@
 id: about
 title: About
 sidebar_label: About
+slug: /
 ---
 Job Queues' server accessible via STOMP and REST, built with keuss
 

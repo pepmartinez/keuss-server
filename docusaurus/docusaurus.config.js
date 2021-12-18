@@ -1,7 +1,7 @@
 module.exports = {
   title: 'Keuss Server Job Queues',
   tagline: 'Distributed server for Job Queues, backed by redis and/or MongoDB',
-  url: 'https://pepmartinez.github.io/keuss-server',
+  url: 'https://pepmartinez.github.io',
   baseUrl: '/keuss-server/',
   onBrokenLinks: 'throw',
   favicon: 'img/favicon.ico',
@@ -76,7 +76,6 @@ module.exports = {
       {
         docs: {
           // It is recommended to set document id as docs home page (`docs/` path).
-          homePageId: 'about',
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl:
