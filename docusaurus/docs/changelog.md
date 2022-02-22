@@ -3,6 +3,9 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
+* v1.6.7:
+  * use keuss v1.6.10
+  * updated other deps
 * v1.6.6:
   * use keuss v1.6.9
   * adds support to remove items by id on REST api
