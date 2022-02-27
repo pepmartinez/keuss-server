@@ -57,10 +57,12 @@ container.on ('receiver_close', context => {
 });
 
 container.on ('sendable', context => {
-    console.log ('==== sendable: ');
+    const tag = 'asdfghjkl';
+    console.log ('==== sendable: send one message with tag %s', tag);
+    context.sender.send ({message_id:'qwertyuiop', body: {sequence: 0, text: 'wrqwerqwreqwerqwerqwerq'}}, tag);
 });
 container.on ('accepted', context => {
-    console.log ('==== accepted: ');
+    console.log ('==== accepted: accepted message with tag %s', context.delivery.tag);
 });
 container.on ('released', context => {
     console.log ('==== released: ');
