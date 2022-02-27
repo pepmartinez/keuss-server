@@ -43,7 +43,8 @@
     "stomp-frames": "~1.0.6",
     "type-is": "~1.6.18",
     "uuid": "~8.3.2",
-    "winston-log-space": "~1.0.6"
+    "winston-log-space": "~1.0.6",
+    "rhea": "3.0.0"
   },
   "devDependencies": {
     "chance": "~1.1.8",
