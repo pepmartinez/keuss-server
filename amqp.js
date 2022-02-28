@@ -30,7 +30,12 @@ class AMQP {
 
   ///////////////////////////////////////////////////////////////////////////
   run (cb) {
-    this._net_server = this._container.listen ({'port': 5672});
+    this._net_server = this._container.listen ({
+      receiver_options: {
+        autoaccept: false
+      },
+      port: 5672
+    });
 
     this._net_server.once ('listening', () => {
       logger.info ('AMQP server listening at %d', 5672);
@@ -308,7 +313,24 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__receiver_open (context) {
-    logger.info ('_on__receiver_open');
+    const conn_id = context.connection.options.id;
+    const target =  context.receiver.remote.attach.target;
+    const name =    context.receiver.name;
+
+    var q = this._get_queue (target.address);
+    if (_.isString (q)) {
+      logger.error ('while opening a receiver: %s', q);
+      return context.receiver.close ({
+        condition: 'a.b.c',
+        description: q
+      });
+    }
+
+    context.receiver.set_target (target);
+    context.receiver.__q = q;
+
+    this._amqp_metrics.amqp_receivers.inc ();
+    logger.info ('[%s] new receiver [%s] opened: attached to queue %s', conn_id, name, target.address);
   }
 
 
@@ -339,7 +361,18 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__message (context) {
-    logger.info ('_on__message');
+    const conn_id = context.connection.options.id;
+    const name =    context.receiver.name;
+    const addr =    context.receiver.target.address;
+
+    logger.info ('[%s][%s] got message: %o', conn_id, name, context.message);
+    
+    const q = context.receiver.__q;
+
+    q.push (context.message, (err, res) => {
+      logger.info ('pushed to %s@%s: %o %o', q.name(), q.ns(), err, res)
+      context.delivery.accept ();
+    });
   }
 
 
