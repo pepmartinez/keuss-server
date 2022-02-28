@@ -25,7 +25,6 @@ class AMQP {
     this._connections = {};
 
     this._create_metrics_amqp ();
-    this._rgm_timer = setInterval (() => this._refresh_gauge_metrics (), this._config.refresh_metrics_interval || 2000);
   }
 
 
@@ -49,7 +48,6 @@ class AMQP {
   end (cb) {
     logger.info ('AMQP server ending');
 
-    clearInterval (this._rgm_timer);
     this._net_server.close ();
     logger.verbose ('  server listen closed');
 
@@ -137,24 +135,26 @@ class AMQP {
     this._amqp_metrics.amqp_connections.inc ();
   }
 
+
   //////////////////////////////////////////////////
   _on__connection_close (context) {
     const id = context.connection.options.id;
     delete this._connections [id];
 
     context.connection.each_sender (s => {
-      logger.verbose ('see sender %s', s.name);
-      this._amqp_metrics.amqp_senders.dec ();
+      logger.verbose ('see dangling sender %s', s.name);
+      if (s.is_open ()) this._amqp_metrics.amqp_senders.dec ();
     });
     
     context.connection.each_receiver (s => {
-      logger.verbose ('see receiver %s', s.name);
-      this._amqp_metrics.amqp_receivers.dec ();
+      logger.verbose ('see dangling receiver %s', s.name);
+      if (s.is_open ()) this._amqp_metrics.amqp_receivers.dec ();
     });
 
     this._amqp_metrics.amqp_connections.dec ();
     logger.info ('connection [%s] closed', id);
   }
+
 
   //////////////////////////////////////////////////
   _on__connection_error (context) {
@@ -181,15 +181,18 @@ class AMQP {
     logger.info ('_on__protocol_error');
   }
 
+
   //////////////////////////////////////////////////
   _on__error (err) {
-    logger.error ('Error emitted: %o');
+    logger.error ('Error emitted: %o', err);
   }
+
 
   //////////////////////////////////////////////////
   _on__disconnected (context) {
     this._on__connection_close (context); 
   }
+
 
   //////////////////////////////////////////////////
 //  _on__settled (context) {
@@ -216,6 +219,7 @@ class AMQP {
     logger.info ('_on__receiver_close');
   }
 
+
   //////////////////////////////////////////////////
   _on__sendable (context) {  
     const conn_id = context.connection.options.id;
@@ -234,6 +238,7 @@ class AMQP {
     logger.info ('sendable burst ended');
   }
 
+
   //////////////////////////////////////////////////
   _on__accepted (context) {  
     const conn_id = context.connection.options.id;
@@ -242,6 +247,7 @@ class AMQP {
     const tag =     context.delivery.tag;
     logger.info ('[conn %s][sender %s][addr %s] accepted message with tag %s', conn_id, name, addr, tag);
   }
+
 
   //////////////////////////////////////////////////
   _on__released (context) {
@@ -252,6 +258,7 @@ class AMQP {
     logger.info ('[conn %s][sender %s][addr %s] released message with tag %s', conn_id, name, addr, tag);
   }
 
+
   //////////////////////////////////////////////////
   _on__rejected (context) {
     const conn_id = context.connection.options.id;
@@ -261,6 +268,7 @@ class AMQP {
     logger.info ('[conn %s][sender %s][addr %s] rejected message with tag %s', conn_id, name, addr, tag);
   }
 
+
   //////////////////////////////////////////////////
   _on__modified (context) {
     const conn_id = context.connection.options.id;
@@ -269,6 +277,7 @@ class AMQP {
     const tag =     context.delivery.tag;
     logger.info ('[conn %s][sender %s][addr %s] modified message with tag %s', conn_id, name, addr, tag);
   }
+
 
   //////////////////////////////////////////////////
   _on__sender_draining (context) {
@@ -285,6 +294,7 @@ class AMQP {
     logger.info ('_on__sender_error');
   }
 
+
   //////////////////////////////////////////////////
   _on__sender_close (context) {
     const conn_id = context.connection.options.id;
@@ -295,10 +305,12 @@ class AMQP {
     logger.info ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
   }
 
+
   //////////////////////////////////////////////////
   _on__receiver_open (context) {
     logger.info ('_on__receiver_open');
   }
+
 
   //////////////////////////////////////////////////
   _on__sender_open (context) {    
@@ -306,13 +318,24 @@ class AMQP {
     const src =     context.sender.remote.attach.source;
     const name =    context.sender.name;
 
+    var q = this._get_queue (src.address);
+    if (_.isString (q)) {
+      logger.error ('while opening a sender: %s', q);
+      return context.sender.close ({
+        condition: 'a.b.c',
+        description: q
+      });
+    }
+
     context.sender.set_source (src);
+    context.sender.__q = q;
 
     this._amqp_metrics.amqp_senders.inc ();
-    logger.info ('[%s] new sender [%s] opened: attach to %s', conn_id, name, src.address);
-    
+    logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
+
     this.__i = 0;
   }
+
 
   //////////////////////////////////////////////////
   _on__message (context) {
@@ -345,57 +368,25 @@ class AMQP {
   }
 
 
-  ////////////////////////////////////////////////////
-  _refresh_gauge_metrics () {
-    /*
-    let sessions = 0;
-    let subscriptions = 0;
-    let pending_acks = 0;
-    let pending_tids = 0;
-    let wsize = 0;
-
-    _.forEach (this._sessions, (s) => {
-      sessions++;
-
-      _.forEach (s.subscrs, (subscr) => {
-        subscriptions++;
-        const qc_st = subscr.qc.status();
-        pending_acks += _.size (qc_st.pending_acks);
-        pending_tids += _.size (qc_st.pending_tids);
-        wsize += qc_st.wsize;
-      });
-    });
-
-    this._amqp_metrics.amqp_sessions.set (sessions);
-    this._amqp_metrics.amqp_subscriptions.set (subscriptions);
-    this._amqp_metrics.amqp_pending_acks.set (pending_acks);
-    this._amqp_metrics.amqp_pending_tids.set (pending_tids);
-    this._amqp_metrics.amqp_wsize.set (wsize);
-    */
-  }
-
-
   ///////////////////////////////////////////////////////////////////////////
   _get_queue (destination) {
-    // dest must be /ns/queue
-    if (!destination.match (/^\/q\/[a-zA-Z0-9\\-_:]+\/[a-zA-Z0-9\\-_]+$/)) {
-      return `destination ${destination} must match /q/<namespace>/<queue>`;
-    }
+    // dest must be one of : /amq/queue/(R) /queue/(R) (R)
+    // where (R) is one of: ns/queue
+    const match = destination.match (/^(?:\/amq\/queue\/|\/queue\/)?(?<ns>[a-zA-Z0-9\\-_:]+)\/(?<q>[a-zA-Z0-9\\-_:]+)$/);
 
-    var arr = destination.split('/');
-    var ns = this._scope.namespace (arr[2]);
+    if (!match) return `address ${destination} must match <ns>/<queue> or /queue/<ns>/<queue> or /amq/queue/<ns>/<queue>`;
 
-    if (!ns) {
-      return `unknown namespace ${ns} on destination queue ${destination}`;
-    }
+    const ns = this._scope.namespace (match.groups.ns);
 
-    var qname = arr[3];
+    if (!ns) return `unknown namespace ${ns} on address ${destination}`;
+
+    var qname = match.groups.q;
 
     if (!ns.q_repo.has(qname)) {
-      ns.q_repo.set(qname, ns.factory.queue(qname, {}));
+      ns.q_repo.set (qname, ns.factory.queue (qname, {}));
     }
 
-    var q = ns.q_repo.get(qname);
+    const q = ns.q_repo.get(qname);
     return q;
   }
 
