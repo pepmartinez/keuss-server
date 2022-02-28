@@ -68,6 +68,7 @@ cconf
 
       var BaseApp = require ('./app');
       var Stomp =   require ('./stomp');
+      var Amqp =   require ('./amqp');
       var Scope =   require ('./Scope');
 
       var context = {};
@@ -88,6 +89,12 @@ cconf
           context.stomp_server = new Stomp (config, context);
           context.app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status()));
           context.stomp_server.run (cb);
+        },
+        cb => {
+          // init amqp server
+          context.amqp_server = new Amqp (config, context);
+          context.app.get ('/amqp/status', (req, res) => res.send (context.amqp_server.status()));
+          context.amqp_server.run (cb);
         },
         cb => {
           // init http/rest server
@@ -119,6 +126,7 @@ cconf
         async.parallel ([
           cb => context.scope.drain (cb),
           cb => context.server.shutdown (cb),
+          cb => context.amqp_server.end (cb),
           cb => context.stomp_server.end (cb),
           cb => context.scope.end (cb),
           cb => {
@@ -128,6 +136,9 @@ cconf
           }
         ], err => {
           logger.info (`shutdown done`);
+
+//          require('active-handles').print();
+
         })
       }
 
