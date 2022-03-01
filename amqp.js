@@ -1,6 +1,5 @@
-const uuid = require ('uuid');
-const util = require ('util');
 const _ =    require ('lodash');
+const async =    require ('async');
 const Rhea = require ('rhea');
 const Log =  require ('winston-log-space');
 
@@ -25,6 +24,8 @@ class AMQP {
     this._connections = {};
 
     this._create_metrics_amqp ();
+    this._pending_acks = {};
+    this._pending_tids = {};
   }
 
 
@@ -38,7 +39,7 @@ class AMQP {
     });
 
     this._net_server.once ('listening', () => {
-      logger.info ('AMQP server listening at %d', 5672);
+      logger.info ('AMQP server listening at port %d', 5672);
       cb ();
     });
 
@@ -46,6 +47,48 @@ class AMQP {
       logger.error ('AMQP server listening error: %o', err);
       cb (err);
     });
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////
+  _cancel_pending () {
+    _.forEach (this._pending_tids, (val, tid) => {
+      val.q.cancel (tid);
+      logger.verbose ('cancelled pending TID [%s] on queue %s@%s', tid, q.name(), q.ns());
+    });
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////
+  _rollback_pending (cb) {
+    const next_t = new Date().getTime ();
+    const tasks = [];
+
+    _.forEach (this._pending_acks, (val, id) => {
+      tasks.push (cb => val.q.ko (val.msg, next_t, (err, res) => {
+        if (err) {
+//          this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ko').inc ();
+          logger.error ('error while rolling back pending ack [%s]: %o', id, err);
+        }
+        else {
+          if (res == 'deadletter') {
+//            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'deadletter').inc ();
+            logger.verbose ('rolled back pending ack [%s] resulted in move-to-deadletter. No more retries will happen', id);
+          }
+          else if (!res) {
+//            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'notfound').inc ();
+            logger.error ('while rolling back pending ack [%s]: no such element', id);
+          }
+          else {
+//            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ok').inc ();
+            logger.verbose ('rolled back pending ack [%s]', id);
+          }
+        }
+        cb ();
+      }));
+    });
+
+    async.series (tasks, cb);
   }
 
 
@@ -69,8 +112,9 @@ class AMQP {
       logger.verbose ('  connection %s closed', id);
     });
 
+    this._cancel_pending ();
+    this._rollback_pending (cb);
     logger.info ('AMQP server closed');
-    setImmediate (cb);
   }
 
 
@@ -92,7 +136,11 @@ class AMQP {
       res[id] = { receivers, senders };
     });
 
-    return {connections: res};
+    return {
+      connections: res,
+      pending_acks: _.mapValues (this._pending_acks, o => {return {t: o.t, id: o.msg._id, q: o.q.name() + '@' + o.q.ns()}}),
+      pending_tids: _.mapValues (this._pending_tids, o => {return {t: o.t, q: o.q.name() + '@' + o.q.ns()}}),
+    };
   }
 
 
@@ -226,31 +274,110 @@ class AMQP {
 
 
   //////////////////////////////////////////////////
-  _on__sendable (context) {  
-    const conn_id = context.connection.options.id;
-    const addr =    context.sender.source.address;
-    const name =    context.sender.name;
-
-    logger.info ('[conn %s][sender %s] is sendable', conn_id, name);
-
-    while (context.sender.sendable() && (this.__i < 5)) {
-      const tag = 'asdfghjkl__' + this.__i + '__' 
-      context.sender.send ({message_id: tag, body: {seq: this.__i, text: 'wrqwerqwreqwerqwerqwerq'}}, tag);
-      this.__i++;
-      logger.info ('[conn %s][sender %s][addr %s] sent #%d (%s)', conn_id, name, addr, this.__i, tag);
+  _send_one (conn_id, sender, q) {
+    if (! sender.sendable ()) {
+      logger.verbose ('[conn %s][sender %s] sendable burst ended', conn_id, sender.name);
+      return;
     }
 
-    logger.info ('sendable burst ended');
+    const cid = sender.name;
+    const opts = {
+      reserve: true
+    };
+
+    logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
+    const tid = q.pop (cid, opts, (err, res) => {
+      delete this._pending_tids[tid];
+
+      if (err) {
+        if (err == 'cancel') {
+          // consumer cancelled, end intent
+          logger.debug ('sender %s: send cancelled while pop from queue %s@%s', cid, q.name(), q.ns());
+          return;
+        }
+        else {
+          logger.error ('sender %s: error while pop from queue %s@%s: %o. Wait 5 secs...', cid, q.name(), q.ns(), err);
+          return setTimeout (() => this._send_one (conn_id, sender, q), 5000);
+        }
+      }
+
+      // no error
+      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), res);
+
+      const tag = res._id.toString();
+
+      this._pending_acks[tag] = {
+        t: new Date(),
+        msg: res,
+        q: q
+      };
+
+      logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
+
+      sender.send ({message_id: tag, body: res.payload}, tag);
+      logger.verbose ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
+
+      this._send_one (conn_id, sender, q);
+    });
+
+    this._pending_tids[tid] = {
+      t: new Date(),
+      q: q
+    };
+  }
+
+
+  //////////////////////////////////////////////////
+  _on__sendable (context) {  
+    const conn_id = context.connection.options.id;
+    const sender =  context.sender;
+    // const addr =    sender.source.address;
+    const q =       sender.__q;
+
+    logger.verbose ('[conn %s][sender %s] is sendable', conn_id, sender.name);
+    this._send_one (conn_id, sender, q);
   }
 
 
   //////////////////////////////////////////////////
   _on__accepted (context) {  
     const conn_id = context.connection.options.id;
-    const addr =    context.sender.source.address;
     const name =    context.sender.name;
     const tag =     context.delivery.tag;
-    logger.info ('[conn %s][sender %s][addr %s] accepted message with tag %s', conn_id, name, addr, tag);
+    const q =       context.sender.__q;
+
+    logger.debug ('[conn %s][sender %s] received accepted with tag %s', conn_id, name, tag);
+
+    const entry = this._pending_acks[tag];
+    if (!entry) return logger.warn ('[conn %s][sender %s] nonexistent pending message with tag %s', conn_id, name, tag);
+
+    q.ok (entry.msg, err => {
+      if (err) return logger.error ('[conn %s][sender %s] while committing message with tag %s: %o', conn_id, name, tag, err);
+
+      delete this._pending_acks[tag];
+      logger.verbose ('[conn %s][sender %s] accepted message with tag %s', conn_id, name, tag);
+    });
+  }
+
+
+  //////////////////////////////////////////////////
+  _on__rejected (context) {
+    const conn_id = context.connection.options.id;
+    const name =    context.sender.name;
+    const tag =     context.delivery.tag;
+    const q =       context.sender.__q;
+
+    logger.debug ('[conn %s][sender %s] received rejected with tag %s', conn_id, name, tag);
+
+    const entry = this._pending_acks[tag];
+    if (!entry) return logger.warn ('[conn %s][sender %s] nonexistent pending message with tag %s', conn_id, name, tag);
+
+    q.ko (entry.msg, (err, res) => {
+      if (err) return logger.error ('[conn %s][sender %s] while rolling-back message with tag %s: %o', conn_id, name, tag, err);
+
+      delete this._pending_acks[tag];
+      logger.verbose ('[conn %s][sender %s] rolled-back message with tag %s', conn_id, name, tag);
+    });
   }
 
 
@@ -260,17 +387,7 @@ class AMQP {
     const addr =    context.sender.source.address;
     const name =    context.sender.name;
     const tag =     context.delivery.tag;
-    logger.info ('[conn %s][sender %s][addr %s] released message with tag %s', conn_id, name, addr, tag);
-  }
-
-
-  //////////////////////////////////////////////////
-  _on__rejected (context) {
-    const conn_id = context.connection.options.id;
-    const addr =    context.sender.source.address;
-    const name =    context.sender.name;
-    const tag =     context.delivery.tag;
-    logger.info ('[conn %s][sender %s][addr %s] rejected message with tag %s', conn_id, name, addr, tag);
+    logger.warn ('[conn %s][sender %s][addr %s] UNSUPPORTED released message with tag %s, ignored', conn_id, name, addr, tag);
   }
 
 
@@ -280,7 +397,7 @@ class AMQP {
     const addr =    context.sender.source.address;
     const name =    context.sender.name;
     const tag =     context.delivery.tag;
-    logger.info ('[conn %s][sender %s][addr %s] modified message with tag %s', conn_id, name, addr, tag);
+    logger.warn ('[conn %s][sender %s][addr %s] UNSUPPORTED modified message with tag %s, ignored', conn_id, name, addr, tag);
   }
 
 
@@ -354,8 +471,6 @@ class AMQP {
 
     this._amqp_metrics.amqp_senders.inc ();
     logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
-
-    this.__i = 0;
   }
 
 
