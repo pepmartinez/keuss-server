@@ -20,7 +20,7 @@ function app (config, context, extra_init, cb) {
     app: app,
     options: {
       normalizePath: (full_path, {req, res}) => {
-        if (req.route) return path.join (req.baseUrl, req.route.path);
+        if (req.route) return path.join (req.baseUrl || '', req.route.path);
         return full_path.split ('?')[0];
       }
     }
