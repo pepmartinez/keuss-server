@@ -286,8 +286,8 @@ class AMQP {
       return;
     }
 
-    if (_.size (this._pending_tids) === 1) {
-      logger.debug ('[conn %s][sender %s] already in sendable burst', conn_id, sender.name);
+    if (sender.__sending) {
+      logger.debug ('[conn %s][sender %s] already sending', conn_id, sender.name);
       return;
 
     }
@@ -300,6 +300,7 @@ class AMQP {
     logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
     const tid = q.pop (cid, opts, (err, res) => {
       delete this._pending_tids[tid];
+      delete sender.__sending;
 
       if (err) {
         if (err == 'cancel') {
@@ -332,9 +333,14 @@ class AMQP {
       this._send_one (conn_id, sender, q);
     });
 
+    // mark this sender as 'sending already'
+    sender.__sending = tid;
+
+    // also store the tid globally, to ease housekeeping
     this._pending_tids[tid] = {
       t: new Date(),
-      q: q
+      q: q,
+      s: sender.name
     };
   }
 
