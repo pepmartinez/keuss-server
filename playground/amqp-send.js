@@ -1,7 +1,7 @@
 var container = require('rhea');
 
 var confirmed = 0, sent = 0;
-var total = 7;
+var total = 11111;
 
 container.on('sendable', context => {
     while (context.sender.sendable() && sent < total) {

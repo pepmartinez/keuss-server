@@ -26,6 +26,8 @@ class AMQP {
     this._create_metrics_amqp ();
     this._pending_acks = {};
     this._pending_tids = {};
+
+    this._window_size = 128; // TODO get from config, max 2048 (maximum supported at rhea), to be minus 1 (allow one for the tid waiting for pop to complete)
   }
 
 
@@ -202,6 +204,7 @@ class AMQP {
 
     context.connection.each_sender (s => {
       logger.verbose ('see dangling sender %s', s.name);
+      // TODO cancel its tid
       if (s.is_open ()) this._amqp_metrics.amqp_senders.dec ();
     });
     
@@ -289,7 +292,11 @@ class AMQP {
     if (sender.__sending) {
       logger.debug ('[conn %s][sender %s] already sending', conn_id, sender.name);
       return;
+    }
 
+    if (sender.__pending_acks > this._window_size) {
+      logger.verbose ('[conn %s][sender %s] too many pending acks, waiting', conn_id, sender.name);
+      return;
     }
 
     const cid = sender.name;
@@ -324,6 +331,8 @@ class AMQP {
         msg: res,
         q: q
       };
+
+      sender.__pending_acks++;
 
       logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
 
@@ -360,9 +369,10 @@ class AMQP {
   //////////////////////////////////////////////////
   _on__accepted (context) {  
     const conn_id = context.connection.options.id;
-    const name =    context.sender.name;
+    const sender =  context.sender;
+    const name =    sender.name;
     const tag =     context.delivery.tag;
-    const q =       context.sender.__q;
+    const q =       sender.__q;
 
     logger.debug ('[conn %s][sender %s] received accepted with tag %s', conn_id, name, tag);
 
@@ -373,6 +383,12 @@ class AMQP {
       if (err) return logger.error ('[conn %s][sender %s] while committing message with tag %s: %o', conn_id, name, tag, err);
 
       delete this._pending_acks[tag];
+      sender.__pending_acks--;
+
+      if (sender.__pending_acks == (this._window_size - 1)) {
+        this._send_one (conn_id, sender, q);
+      }
+
       logger.debug ('[conn %s][sender %s] accepted message with tag %s', conn_id, name, tag);
     });
   }
@@ -381,9 +397,10 @@ class AMQP {
   //////////////////////////////////////////////////
   _on__rejected (context) {
     const conn_id = context.connection.options.id;
-    const name =    context.sender.name;
+    const sender =  context.sender;
+    const name =    sender.name;
     const tag =     context.delivery.tag;
-    const q =       context.sender.__q;
+    const q =       sender.__q;
 
     logger.debug ('[conn %s][sender %s] received rejected with tag %s', conn_id, name, tag);
 
@@ -391,9 +408,16 @@ class AMQP {
     if (!entry) return logger.warn ('[conn %s][sender %s] nonexistent pending message with tag %s', conn_id, name, tag);
 
     q.ko (entry.msg, (err, res) => {
+      // TODO log if deadletter-ed
       if (err) return logger.error ('[conn %s][sender %s] while rolling-back message with tag %s: %o', conn_id, name, tag, err);
 
       delete this._pending_acks[tag];
+      sender.__pending_acks--;
+
+      if (sender.__pending_acks == (this._window_size - 1)) {
+        this._send_one (conn_id, sender, q);
+      }
+
       logger.debug ('[conn %s][sender %s] rolled-back message with tag %s', conn_id, name, tag);
     });
   }
@@ -486,6 +510,7 @@ class AMQP {
 
     context.sender.set_source (src);
     context.sender.__q = q;
+    context.sender.__pending_acks = 0;
 
     this._amqp_metrics.amqp_senders.inc ();
     logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
