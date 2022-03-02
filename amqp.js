@@ -35,6 +35,10 @@ class AMQP {
       receiver_options: {
         autoaccept: false
       },
+      sender_options: {
+//        autosettle: false
+//        snd_settle_mode: 1
+      },
       port: 5672
     });
 
@@ -158,7 +162,7 @@ class AMQP {
       'disconnected',
 //      'settled',
       'receiver_drained',
-      'receiver_flow',
+//      'receiver_flow',
       'receiver_error',
       'receiver_close',
       'sendable',
@@ -167,7 +171,7 @@ class AMQP {
       'rejected',
       'modified',
       'sender_draining',
-      'sender_flow',
+//      'sender_flow',
       'sender_error',
       'sender_close',
       'receiver_open',
@@ -258,9 +262,9 @@ class AMQP {
   }
 
   //////////////////////////////////////////////////
-  _on__receiver_flow (context) {
-    logger.info ('_on__receiver_flow');
-  }
+//  _on__receiver_flow (context) {
+//    logger.info ('_on__receiver_flow');
+//  }
 
   //////////////////////////////////////////////////
   _on__receiver_error (context) {
@@ -276,8 +280,14 @@ class AMQP {
   //////////////////////////////////////////////////
   _send_one (conn_id, sender, q) {
     if (! sender.sendable ()) {
-      logger.verbose ('[conn %s][sender %s] sendable burst ended', conn_id, sender.name);
+      logger.debug ('[conn %s][sender %s] sendable burst ended', conn_id, sender.name);
       return;
+    }
+
+    if (_.size (this._pending_tids) === 1) {
+      logger.debug ('[conn %s][sender %s] already in sendable burst', conn_id, sender.name);
+      return;
+
     }
 
     const cid = sender.name;
@@ -334,7 +344,7 @@ class AMQP {
     // const addr =    sender.source.address;
     const q =       sender.__q;
 
-    logger.verbose ('[conn %s][sender %s] is sendable', conn_id, sender.name);
+    logger.debug ('[conn %s][sender %s] signalled as sendable', conn_id, sender.name);
     this._send_one (conn_id, sender, q);
   }
 
@@ -407,9 +417,9 @@ class AMQP {
   }
 
   //////////////////////////////////////////////////
-  _on__sender_flow (context) {
-    logger.info ('_on__sender_flow');
-  }
+//  _on__sender_flow (context) {
+//    logger.info ('_on__sender_flow');
+//  }
 
   //////////////////////////////////////////////////
   _on__sender_error (context) {
@@ -485,6 +495,9 @@ class AMQP {
     const q = context.receiver.__q;
 
     q.push (context.message, (err, res) => {
+      if (err) {
+
+      }
       logger.info ('pushed to %s@%s: %o %o', q.name(), q.ns(), err, res)
       context.delivery.accept ();
     });
