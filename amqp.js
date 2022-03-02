@@ -123,8 +123,8 @@ class AMQP {
 
 
   ///////////////////////////////////////////////////////////////////////////
-  status () {
-    var res = {};
+  status (verbose) {
+    var conns = {};
 
     _.forEach (this._connections, (c, id) => {
       var receivers = {};
@@ -137,14 +137,16 @@ class AMQP {
         senders[r.name] = {}
       }); 
 
-      res[id] = { receivers, senders };
+      conns[id] = { receivers, senders };
     });
 
-    return {
-      connections: res,
-      pending_acks: _.mapValues (this._pending_acks, o => {return {t: o.t, id: o.msg._id, q: o.q.name() + '@' + o.q.ns()}}),
-      pending_tids: _.mapValues (this._pending_tids, o => {return {t: o.t, q: o.q.name() + '@' + o.q.ns()}}),
+    const res = {
+      connections: conns,
+      pending_acks: verbose ? _.mapValues (this._pending_acks, o => {return {t: o.t, id: o.msg._id, q: o.q.name() + '@' + o.q.ns()}}) : _.size (this._pending_acks),
+      pending_tids: verbose ? _.mapValues (this._pending_tids, o => {return {t: o.t, s: o.s, q: o.q.name() + '@' + o.q.ns()}}) : _.size (this._pending_tids),
     };
+
+    return res;
   }
 
 

@@ -87,13 +87,13 @@ cconf
         cb => {
           // init stomp server
           context.stomp_server = new Stomp (config, context);
-          context.app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status()));
+          context.app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status (req.query && req.query.v)));
           context.stomp_server.run (cb);
         },
         cb => {
           // init amqp server
           context.amqp_server = new Amqp (config, context);
-          context.app.get ('/amqp/status', (req, res) => res.send (context.amqp_server.status()));
+          context.app.get ('/amqp/status', (req, res) => res.send (context.amqp_server.status (req.query && req.query.v)));
           context.amqp_server.run (cb);
         },
         cb => {
