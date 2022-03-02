@@ -328,7 +328,7 @@ class AMQP {
       logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
 
       sender.send ({message_id: tag, body: res.payload}, tag);
-      logger.verbose ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
+      logger.debug ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
 
       this._send_one (conn_id, sender, q);
     });
@@ -373,7 +373,7 @@ class AMQP {
       if (err) return logger.error ('[conn %s][sender %s] while committing message with tag %s: %o', conn_id, name, tag, err);
 
       delete this._pending_acks[tag];
-      logger.verbose ('[conn %s][sender %s] accepted message with tag %s', conn_id, name, tag);
+      logger.debug ('[conn %s][sender %s] accepted message with tag %s', conn_id, name, tag);
     });
   }
 
@@ -394,7 +394,7 @@ class AMQP {
       if (err) return logger.error ('[conn %s][sender %s] while rolling-back message with tag %s: %o', conn_id, name, tag, err);
 
       delete this._pending_acks[tag];
-      logger.verbose ('[conn %s][sender %s] rolled-back message with tag %s', conn_id, name, tag);
+      logger.debug ('[conn %s][sender %s] rolled-back message with tag %s', conn_id, name, tag);
     });
   }
 
