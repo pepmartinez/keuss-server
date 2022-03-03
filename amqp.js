@@ -27,6 +27,7 @@ class AMQP {
     this._pending_acks = {};
     this._pending_tids = {};
     
+    this._parallel =    this._config.parallel || 1;
     this._window_size = this._config.wsize || 512;
     this._window_size = this._window_size > 2048 ? 2048 : this._window_size;
   }
@@ -59,7 +60,7 @@ class AMQP {
 
   ///////////////////////////////////////////
   _window_used (sender) {
-    return sender.__pending_acks + (sender.__sending ? 1 : 0);
+    return sender.__pending_acks + sender.__pending_tids;
   }
 
 
@@ -146,7 +147,7 @@ class AMQP {
       c.each_sender (s => {
         senders[s.name] = {
           pending_acks: s.__pending_acks,
-          pending_tids: s.__sending ? 1: 0
+          pending_tids: s.__pending_tids
         }
       }); 
 
@@ -300,8 +301,8 @@ class AMQP {
       return;
     }
 
-    if (sender.__sending) {
-      logger.debug ('[conn %s][sender %s] already sending', conn_id, sender.name);
+    if (sender.__pending_tids >= this._parallel) {
+      logger.verbose ('[conn %s][sender %s] already sending', conn_id, sender.name);
       return;
     }
 
@@ -318,7 +319,7 @@ class AMQP {
     logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
     const tid = q.pop (cid, opts, (err, res) => {
       delete this._pending_tids[tid];
-      delete sender.__sending;
+      sender.__pending_tids--;
 
       if (err) {
         if (err == 'cancel') {
@@ -353,8 +354,8 @@ class AMQP {
       this._send_one (conn_id, sender, q);
     });
 
-    // mark this sender as 'sending already'
-    sender.__sending = tid;
+    // count another pending tid (waiting for queue.pop())
+    sender.__pending_tids++;
 
     // also store the tid globally, to ease housekeeping
     this._pending_tids[tid] = {
@@ -443,6 +444,7 @@ class AMQP {
     const name =    context.sender.name;
     const tag =     context.delivery.tag;
     logger.warn ('[conn %s][sender %s][addr %s] UNSUPPORTED released message with tag %s, ignored', conn_id, name, addr, tag);
+    // TODO Assume rejected or ignored?
   }
 
 
@@ -524,6 +526,7 @@ class AMQP {
     context.sender.set_source (src);
     context.sender.__q = q;
     context.sender.__pending_acks = 0;
+    context.sender.__pending_tids = 0;
 
     this._amqp_metrics.amqp_senders.inc ();
     logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());

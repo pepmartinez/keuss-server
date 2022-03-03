@@ -5,7 +5,8 @@ var config = {
     }
   },
   amqp: {
-    wsize: 32
+    wsize: 128,
+    parallel: 3
   },
   stats: {
     memory: {
