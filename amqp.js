@@ -1,7 +1,7 @@
-const _ =    require ('lodash');
-const async =    require ('async');
-const Rhea = require ('rhea');
-const Log =  require ('winston-log-space');
+const _ =     require ('lodash');
+const async = require ('async');
+const Rhea =  require ('rhea');
+const Log =   require ('winston-log-space');
 
 const logger = Log.logger ('amqp');
 
@@ -26,8 +26,9 @@ class AMQP {
     this._create_metrics_amqp ();
     this._pending_acks = {};
     this._pending_tids = {};
-
-    this._window_size = 128; // TODO get from config, max 2048 (maximum supported at rhea), to be minus 1 (allow one for the tid waiting for pop to complete)
+    
+    this._window_size = this._config.wsize || 512;
+    this._window_size = this._window_size > 2048 ? 2048 : this._window_size;
   }
 
 
@@ -53,6 +54,12 @@ class AMQP {
       logger.error ('AMQP server listening error: %o', err);
       cb (err);
     });
+  }
+
+
+  ///////////////////////////////////////////
+  _window_used (sender) {
+    return sender.__pending_acks + (sender.__sending ? 1 : 0);
   }
 
 
@@ -131,12 +138,16 @@ class AMQP {
     _.forEach (this._connections, (c, id) => {
       var receivers = {};
       c.each_receiver (r => {
-        receivers[r.name] = {}
+        receivers[r.name] = {
+        }
       });
 
       var senders = {};
-      c.each_sender (r => {
-        senders[r.name] = {}
+      c.each_sender (s => {
+        senders[s.name] = {
+          pending_acks: s.__pending_acks,
+          pending_tids: s.__sending ? 1: 0
+        }
       }); 
 
       conns[id] = { receivers, senders };
@@ -294,7 +305,7 @@ class AMQP {
       return;
     }
 
-    if (sender.__pending_acks > this._window_size) {
+    if (this._window_used (sender) >= this._window_size) {
       logger.verbose ('[conn %s][sender %s] too many pending acks, waiting', conn_id, sender.name);
       return;
     }
@@ -385,7 +396,8 @@ class AMQP {
       delete this._pending_acks[tag];
       sender.__pending_acks--;
 
-      if (sender.__pending_acks == (this._window_size - 1)) {
+      if (this._window_used (sender) == (this._window_size - 1)) {
+        logger.debug ('REARM: wused %d, wsize %d', this._window_used (sender), this._window_size);
         this._send_one (conn_id, sender, q);
       }
 
@@ -414,7 +426,8 @@ class AMQP {
       delete this._pending_acks[tag];
       sender.__pending_acks--;
 
-      if (sender.__pending_acks == (this._window_size - 1)) {
+      if (this._window_used (sender) == (this._window_size - 1)) {
+        logger.debug ('REARM: wused %d, wsize %d', this._window_used (sender), this._window_size);
         this._send_one (conn_id, sender, q);
       }
 

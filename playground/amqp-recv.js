@@ -21,8 +21,11 @@ container.on ('message', context => {
                 context.delivery.reject();
                 console.log ('rejected message %s', tag);
                 break;
+
+            default: 
+                console.log ('IGNORED message %s', tag);
         }
-    }, between (1000,15000));
+    }, between (5000,15000));
 });
 
 

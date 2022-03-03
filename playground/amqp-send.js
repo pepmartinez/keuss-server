@@ -7,7 +7,7 @@ container.on('sendable', context => {
     while (context.sender.sendable() && sent < total) {
         sent++;
         console.log('sent ' + sent);
-        context.sender.send({message_id:sent, body:{'sequence':sent}})
+        context.sender.send ({message_id:sent, body:{'sequence':sent}})
     }
 });
 container.on('accepted', context => {
