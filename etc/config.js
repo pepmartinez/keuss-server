@@ -4,10 +4,6 @@ var config = {
     users: {
     }
   },
-  amqp: {
-    wsize: 128,
-    parallel: 3
-  },
   stats: {
     memory: {
       factory: 'mem',
