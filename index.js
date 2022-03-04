@@ -15,6 +15,11 @@ var defaults = {
     keepalive_interval: 2000,
     read_timeout: 12000
   },
+  amqp: {
+    port: 5672,
+    wsize: 128,
+    parallel: 3
+  },
   namespaces: {}
 };
 
