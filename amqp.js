@@ -420,8 +420,10 @@ class AMQP {
     const name =    sender.name;
     const tag =     context.delivery.tag;
     const q =       sender.__q;
+    const error =   context.delivery?.remote_state?.error;
 
-    logger.debug ('[conn %s][sender %s] received rejected with tag %s', conn_id, name, tag);
+    logger.verbose ('[conn %s][sender %s] received rejected with tag %s: %s', conn_id, name, tag, error.description || error.condition || error.info);
+
 
     const entry = this._pending_acks[tag];
     if (!entry) return logger.warn ('[conn %s][sender %s] nonexistent pending message with tag %s', conn_id, name, tag);
@@ -550,12 +552,25 @@ class AMQP {
     logger.info ('[%s][%s] got message: %o', conn_id, name, context.message);
     
     const q = context.receiver.__q;
+    const msg = context.message.body;
+    const opts = {
+      // mature: 
+      // delay: 
+      // tries:
+      // hdrs:
+    }
 
-    q.push (context.message, (err, res) => {
+    q.push (msg, opts, (err, res) => {
       if (err) {
+        logger.info ('Could not push to %s@%s: %o', q.name(), q.ns(), err);
 
+        return context.delivery.reject ({
+          condition: 'amqp:internal-error',
+          description: err.toString ()
+        });
       }
-      logger.info ('pushed to %s@%s: %o %o', q.name(), q.ns(), err, res)
+
+      logger.info ('pushed new mesg to %s@%s: %o', q.name(), q.ns(), res);
       context.delivery.accept ();
     });
   }

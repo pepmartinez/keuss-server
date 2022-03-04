@@ -18,7 +18,7 @@ container.on ('message', context => {
                 break;
 
             case 2:  
-                context.delivery.reject();
+                context.delivery.reject({condition: 'random condition', description: `message rejected just because dice was ${dice}`});
                 console.log ('rejected message %s', tag);
                 break;
 
