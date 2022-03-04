@@ -232,7 +232,8 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__connection_error (context) {
-    logger.info ('_on__connection_error');
+    logger.info ('_on__connection_error: %o', context.error);
+    // do not manage (socket gets closed)
   }
 
   //////////////////////////////////////////////////
@@ -251,14 +252,16 @@ class AMQP {
 //  }
 
   //////////////////////////////////////////////////
-  _on__protocol_error (context) {
-    logger.info ('_on__protocol_error');
+  _on__protocol_error (err) {
+    // nothing to do but log it: socket will be closed
+    logger.info ('_on__protocol_error: %o', err);
   }
 
 
   //////////////////////////////////////////////////
   _on__error (err) {
-    logger.error ('Error emitted: %o', err);
+    logger.error ('Unmanaged Error emitted: %o', err);
+    // TODO manage (apparently socket gets closed)
   }
 
 
@@ -285,7 +288,8 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__receiver_error (context) {
-    logger.info ('_on__receiver_error');
+    logger.info ('_on__receiver_error: %o', context.error);
+    // do not manage (socket gets closed)
   }
 
   //////////////////////////////////////////////////
@@ -470,7 +474,8 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__sender_error (context) {
-    logger.info ('_on__sender_error');
+    logger.info ('_on__sender_error: %o', context.error);
+    // do not manage (socket gets closed)
   }
 
 
