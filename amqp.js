@@ -503,8 +503,8 @@ class AMQP {
     if (_.isString (q)) {
       logger.error ('while opening a receiver: %s', q);
       return context.receiver.close ({
-        condition: 'a.b.c',
-        description: q
+        condition: 'amqp:not-found',
+        description: `while trying to get queue [${target.address}] for receiver: ${q}`
       });
     }
 
@@ -526,8 +526,8 @@ class AMQP {
     if (_.isString (q)) {
       logger.error ('while opening a sender: %s', q);
       return context.sender.close ({
-        condition: 'a.b.c',
-        description: q
+        condition: 'amqp:not-found',
+        description: `while trying to get queue [${target.address}] for sender: ${q}`
       });
     }
 
