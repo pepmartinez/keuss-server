@@ -216,7 +216,7 @@ class AMQP {
 
     context.connection.each_sender (s => {
       logger.verbose ('see dangling sender %s', s.name);
-      // TODO cancel its tid
+      // TODO cancel its tids
       if (s.is_open ()) this._amqp_metrics.amqp_senders.dec ();
     });
     
@@ -352,6 +352,8 @@ class AMQP {
 
       logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
 
+      // TODO get headers, amqp-standard and extra
+      // TODO return delivery_count too
       sender.send ({message_id: tag, body: res.payload}, tag);
       logger.debug ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
 
@@ -426,6 +428,7 @@ class AMQP {
 
     q.ko (entry.msg, (err, res) => {
       // TODO log if deadletter-ed
+      // TODO set delay based on rejections
       if (err) return logger.error ('[conn %s][sender %s] while rolling-back message with tag %s: %o', conn_id, name, tag, err);
 
       delete this._pending_acks[tag];
@@ -588,11 +591,9 @@ class AMQP {
     // dest must be one of : /amq/queue/(R) /queue/(R) (R)
     // where (R) is one of: ns/queue
     const match = destination.match (/^(?:\/amq\/queue\/|\/queue\/)?(?<ns>[a-zA-Z0-9\\-_:]+)\/(?<q>[a-zA-Z0-9\\-_:]+)$/);
-
     if (!match) return `address ${destination} must match <ns>/<queue> or /queue/<ns>/<queue> or /amq/queue/<ns>/<queue>`;
 
     const ns = this._scope.namespace (match.groups.ns);
-
     if (!ns) return `unknown namespace ${ns} on address ${destination}`;
 
     var qname = match.groups.q;
@@ -604,11 +605,6 @@ class AMQP {
     const q = ns.q_repo.get(qname);
     return q;
   }
-
-
-
-
-
 }
 
 module.exports = AMQP;
