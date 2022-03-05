@@ -316,6 +316,39 @@ class AMQP {
 
 
   //////////////////////////////////////////////////
+  _item_to_amqp (item, message) {
+    message.durable = true;
+    message.delivery_count = item.tries;
+    message.body = item.payload;
+
+    if (item.hdrs['subject'])          message.subject =          item.hdrs['subject'];
+    if (item.hdrs['content-type'])     message.content_type =     item.hdrs['content-type'];
+    if (item.hdrs['content-encoding']) message.content_encoding = item.hdrs['content-encoding'];
+
+    if (item.hdrs['x-amqp-priority'])             message.priority =             parseInt (item.hdrs['x-amqp-priority']);
+    if (item.hdrs['x-amqp-ttl'])                  message.ttl =                  parseInt (item.hdrs['x-amqp-ttl']);
+    if (item.hdrs['x-amqp-absolute-expiry-time']) message.absolute_expiry_time = parseInt (item.hdrs['x-amqp-absolute-expiry-time']);
+    if (item.hdrs['x-amqp-creation-time'])        message.creation_time =        parseInt (item.hdrs['x-amqp-creation-time']);
+    if (item.hdrs['x-amqp-group-sequence'])       message.group_sequence =       parseInt (item.hdrs['x-amqp-group-sequence']);
+
+    if (item.hdrs['x-amqp-message-id'])        message.message_id =        item.hdrs['x-amqp-message_id'];
+    if (item.hdrs['x-amqp-user-id'])           message.user_id =           item.hdrs['x-amqp-user_id'];
+    if (item.hdrs['x-amqp-to'])                message.to =                item.hdrs['x-amqp-to'];
+    if (item.hdrs['x-amqp-reply-to'])          message.reply_to =          item.hdrs['x-amqp-reply-to'];
+    if (item.hdrs['x-amqp-correlation-id'])    message.correlation_id =    item.hdrs['x-amqp-correlation-id'];
+    if (item.hdrs['x-amqp-group-id'])          message.group_id =          item.hdrs['x-amqp-group-id'];
+    if (item.hdrs['x-amqp-reply-to-group-id']) message.reply_to_group_id = item.hdrs['x-amqp-reply-to-group-id'];
+
+    _.each (item.hdrs, (v, k) => {
+      if (k.startsWith ('x-amqp-da-')) {const nk = k.substr (10); if (message.delivery_annotations ==   undefined) {message.delivery_annotations =   {};} message.delivery_annotations[nk] = v;}
+      if (k.startsWith ('x-amqp-ma-')) {const nk = k.substr (10); if (message.message_annotations ==    undefined) {message.message_annotations =    {};} message.message_annotations[nk] = v;}
+      if (k.startsWith ('x-amqp-ap-')) {const nk = k.substr (10); if (message.application_properties == undefined) {message.application_properties = {};} message.application_properties[nk] = v;}
+      if (k.startsWith ('x-amqp-ft-')) {const nk = k.substr (10); if (message.footer ==                 undefined) {message.footer =                 {};} message.footer[nk] = v;}
+    });
+  }
+
+
+  //////////////////////////////////////////////////
   _send_one (conn_id, sender, q) {
     if (! sender.sendable ()) {
       logger.debug ('[conn %s][sender %s] sendable burst ended', conn_id, sender.name);
@@ -355,7 +388,7 @@ class AMQP {
       }
 
       // no error
-      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item);
+      logger.verbose ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item);
 
       const tag = item._id.toString();
 
@@ -369,39 +402,9 @@ class AMQP {
 
       logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
 
-      // TODO get headers, amqp-standard and extra
-      // TODO return delivery_count too
-      const msg = {
-        durable:        true,
-        message_id:     tag, 
-        body:           item.payload,
-        delivery_count: item.tries
-
-        /*
-
-
-    priority
-    ttl
-    first_acquirer
-    delivery_annotations, an object/map of non-standard delivery annotations sent to link recipient peer that should be negotiated at link attach
-    message_annotations, an object/map of non-standard delivery annotations propagated across all steps that should be negotiated at link attach
-    user_id
-    to
-    subject
-    reply_to
-    correlation_id
-    content_type
-    content_encoding
-    absolute_expiry_time
-    creation_time
-    group_id
-    group_sequence
-    reply_to_group_id
-    application_properties, an object/map which can take arbitrary, application defined named simple values
-    footer, an objec`t/map for HMACs or signatures or similar
-
-        */
-      };
+      const msg = {};
+      this._item_to_amqp (item, msg);
+      if (!msg.message_id) msg.message_id = tag;
 
       sender.send (msg, tag);
 
@@ -575,7 +578,7 @@ class AMQP {
     const src =     context.sender.remote.attach.source;
     const name =    context.sender.name;
 
-    var q = this._get_queue (src.address);
+    const q = this._get_queue (src.address);
     if (_.isString (q)) {
       logger.error ('while opening a sender: %s', q);
       return context.sender.close ({
@@ -595,6 +598,35 @@ class AMQP {
 
 
   //////////////////////////////////////////////////
+  _amqp_to_hdrs (message, opts) {
+    if (message.delivery_count)   opts.tries =                    message.delivery_count;
+    
+    if (message.subject)          opts.hdrs['subject'] =          message.subject;
+    if (message.content_type)     opts.hdrs['content-type'] =     message.content_type;
+    if (message.content_encoding) opts.hdrs['content-encoding'] = message.content_encoding;
+
+    if (message.priority)             opts.hdrs['x-amqp-priority'] =             message.priority + '';
+    if (message.ttl)                  opts.hdrs['x-amqp-ttl'] =                  message.ttl + '';
+    if (message.absolute_expiry_time) opts.hdrs['x-amqp-absolute-expiry-time'] = message.absolute_expiry_time + '';
+    if (message.creation_time)        opts.hdrs['x-amqp-creation-time'] =        message.creation_time + '';
+    if (message.group_sequence)       opts.hdrs['x-amqp-group-sequence'] =       message.group_sequence + '';
+
+    if (message.message_id)        opts.hdrs['x-amqp-message-id'] =        message.message_id;
+    if (message.user_id)           opts.hdrs['x-amqp-user-id'] =           message.user_id;
+    if (message.to)                opts.hdrs['x-amqp-to'] =                message.to;
+    if (message.reply_to)          opts.hdrs['x-amqp-reply-to'] =          message.reply_to;
+    if (message.correlation_id)    opts.hdrs['x-amqp-correlation-id'] =    message.correlation_id;
+    if (message.group_id)          opts.hdrs['x-amqp-group-id'] =          message.group_id;
+    if (message.reply_to_group_id) opts.hdrs['x-amqp-reply-to-group-id'] = message.reply_to_group_id;
+
+    _.each (message.delivery_annotations,   (v, k) => opts.hdrs['x-amqp-da-' + k] = v + '');
+    _.each (message.message_annotations,    (v, k) => opts.hdrs['x-amqp-ma-' + k] = v + '');
+    _.each (message.application_properties, (v, k) => opts.hdrs['x-amqp-ap-' + k] = v + '');
+    _.each (message.footer,                 (v, k) => opts.hdrs['x-amqp-ft-' + k] = v + '');
+  }
+
+
+  //////////////////////////////////////////////////
   _on__message (context) {
     const conn_id = context.connection.options.id;
     const name =    context.receiver.name;
@@ -605,11 +637,12 @@ class AMQP {
     const q = context.receiver.__q;
     const msg = context.message.body;
     const opts = {
-      // mature: 
-      // delay: 
-      // tries:
-      // hdrs:
+      // TODO mature: 
+      // TODO delay: 
+      hdrs: {}
     }
+
+    this._amqp_to_hdrs (context.message, opts) ;
 
     q.push (msg, opts, (err, res) => {
       if (err) {
