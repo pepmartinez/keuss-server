@@ -746,6 +746,7 @@ class STOMP {
       var x_delta_t = parseInt (frm.header ('x-delta-t')) || 5000;
       next_t = new Date().getTime () + x_delta_t;
     }
+    // else TODO port retry.cN logic from amqp
 
     var ack = subscr.qc.nack (msg_id, next_t, err => {
       if (err) return this._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);

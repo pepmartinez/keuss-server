@@ -1,7 +1,7 @@
 var container = require('rhea');
 
 var confirmed = 0, sent = 0;
-var total = 11111;
+var total = 1111;
 
 container.on('sendable', context => {
     while (context.sender.sendable() && sent < total) {
@@ -10,6 +10,7 @@ container.on('sendable', context => {
         context.sender.send ({message_id:sent, body:{'sequence':sent}})
     }
 });
+
 container.on('accepted', context => {
     console.log('message confirmed');
     if (++confirmed === total) {
@@ -17,6 +18,7 @@ container.on('accepted', context => {
         context.connection.close();
     }
 });
+
 container.on('disconnected', context => {
     if (context.error) console.error('%s %j', context.error, context.error);
     sent = confirmed;

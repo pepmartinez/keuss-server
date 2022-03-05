@@ -10,22 +10,17 @@ container.on ('message', context => {
     console.log ('received message with tag', tag, context.message);
 
     setTimeout (() => {
-        const dice = between (1, 3);
-        switch (dice) {
-            case 1: 
-                context.delivery.accept();
-                console.log ('acepted message %s', tag);
-                break;
+      const dice = between (1, 100);
 
-            case 2:  
-                context.delivery.reject({condition: 'random condition', description: `message rejected just because dice was ${dice}`});
-                console.log ('rejected message %s', tag);
-                break;
-
-            default: 
-                console.log ('IGNORED message %s', tag);
-        }
-    }, between (5000,15000));
+      if (dice < 70) {
+        context.delivery.accept();
+        console.log ('acepted message %s', tag);
+      }
+      else {
+        context.delivery.reject({condition: 'random condition', description: `message rejected just because dice was ${dice}`});
+        console.log ('rejected message %s', tag);
+      }
+    }, between (100,5000));
 });
 
 

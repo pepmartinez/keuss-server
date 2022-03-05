@@ -2,10 +2,9 @@ const _ =     require ('lodash');
 const async = require ('async');
 const Rhea =  require ('rhea');
 const Log =   require ('winston-log-space');
+const { throws } = require('should');
 
 const logger = Log.logger ('amqp');
-
-
 
 class AMQP {
   ///////////////////////////////////////////
@@ -28,8 +27,12 @@ class AMQP {
     this._pending_tids = {};
     
     this._parallel =    this._config.parallel || 1;
-    this._window_size = this._config.wsize || 512;
+    this._window_size = this._config.wsize || 1024;
     this._window_size = this._window_size > 2048 ? 2048 : this._window_size;
+
+    this._c0 = _.get (this._config, 'retry.delay.c0', 3);
+    this._c1 = _.get (this._config, 'retry.delay.c1', 3);
+    this._c2 = _.get (this._config, 'retry.delay.c2', 3);
   }
 
 
@@ -55,6 +58,17 @@ class AMQP {
       logger.error ('AMQP server listening error: %o', err);
       cb (err);
     });
+  }
+
+  
+  ///////////////////////////////////////////////////////////////////////////////////////
+  // calculate delay to apply on a rollback. Uses a 2nd-deg polynom based on tries
+  _get_delay (elem) {
+    const r = elem.tries || 0;
+    return (r*r*this._c2 + r*this._c1 + this._c0) * 1000;
+
+    // TODO add some jitter
+
   }
 
 
@@ -146,6 +160,8 @@ class AMQP {
       var senders = {};
       c.each_sender (s => {
         senders[s.name] = {
+          parallel:     this._parallel,
+          window_size:  this._window_size,
           pending_acks: s.__pending_acks,
           pending_tids: s.__pending_tids
         }
@@ -274,6 +290,7 @@ class AMQP {
   //////////////////////////////////////////////////
 //  _on__settled (context) {
 //    logger.info ('_on__settled');
+// TODO see to it for exactly-once deliveries ??
 //  }
 
   //////////////////////////////////////////////////
@@ -306,12 +323,12 @@ class AMQP {
     }
 
     if (sender.__pending_tids >= this._parallel) {
-      logger.verbose ('[conn %s][sender %s] already sending', conn_id, sender.name);
+      logger.debug ('[conn %s][sender %s] already sending', conn_id, sender.name);
       return;
     }
 
     if (this._window_used (sender) >= this._window_size) {
-      logger.verbose ('[conn %s][sender %s] too many pending acks, waiting', conn_id, sender.name);
+      logger.debug ('[conn %s][sender %s] too many pending acks, waiting', conn_id, sender.name);
       return;
     }
 
@@ -321,7 +338,7 @@ class AMQP {
     };
 
     logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
-    const tid = q.pop (cid, opts, (err, res) => {
+    const tid = q.pop (cid, opts, (err, item) => {
       delete this._pending_tids[tid];
       sender.__pending_tids--;
 
@@ -338,13 +355,13 @@ class AMQP {
       }
 
       // no error
-      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), res);
+      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item);
 
-      const tag = res._id.toString();
+      const tag = item._id.toString();
 
       this._pending_acks[tag] = {
         t: new Date(),
-        msg: res,
+        msg: item,
         q: q
       };
 
@@ -354,7 +371,40 @@ class AMQP {
 
       // TODO get headers, amqp-standard and extra
       // TODO return delivery_count too
-      sender.send ({message_id: tag, body: res.payload}, tag);
+      const msg = {
+        durable:        true,
+        message_id:     tag, 
+        body:           item.payload,
+        delivery_count: item.tries
+
+        /*
+
+
+    priority
+    ttl
+    first_acquirer
+    delivery_annotations, an object/map of non-standard delivery annotations sent to link recipient peer that should be negotiated at link attach
+    message_annotations, an object/map of non-standard delivery annotations propagated across all steps that should be negotiated at link attach
+    user_id
+    to
+    subject
+    reply_to
+    correlation_id
+    content_type
+    content_encoding
+    absolute_expiry_time
+    creation_time
+    group_id
+    group_sequence
+    reply_to_group_id
+    application_properties, an object/map which can take arbitrary, application defined named simple values
+    footer, an objec`t/map for HMACs or signatures or similar
+
+        */
+      };
+
+      sender.send (msg, tag);
+
       logger.debug ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
 
       this._send_one (conn_id, sender, q);
@@ -428,7 +478,8 @@ class AMQP {
     const entry = this._pending_acks[tag];
     if (!entry) return logger.warn ('[conn %s][sender %s] nonexistent pending message with tag %s', conn_id, name, tag);
 
-    q.ko (entry.msg, (err, res) => {
+    const delay = this._get_delay (entry.msg);
+    q.ko (entry.msg, (new Date().getTime () + delay), (err, res) => {
       // TODO log if deadletter-ed
       // TODO set delay based on rejections
       if (err) return logger.error ('[conn %s][sender %s] while rolling-back message with tag %s: %o', conn_id, name, tag, err);
@@ -441,7 +492,7 @@ class AMQP {
         this._send_one (conn_id, sender, q);
       }
 
-      logger.debug ('[conn %s][sender %s] rolled-back message with tag %s', conn_id, name, tag);
+      logger.verbose ('[conn %s][sender %s] rolled-back message [%s] with delay of %d sec, rollback-result %o', conn_id, name, tag, delay, res);
     });
   }
 
