@@ -656,7 +656,7 @@ class STOMP {
       m_frm.header ('subscription', frm.id);
       m_frm.header ('message-id', frm.id + '@' + (item._id ? item._id.toString() : 'none'));
       m_frm.header ('destination', q.name());
-      m_frm.header ('x-mature', item.mature.toString ());
+      m_frm.header ('x-mature', item.mature.toISOString ());
       m_frm.header ('x-tries', item.tries + '');
       m_frm.header ('content-type', item.hdrs['content-type'] ? item.hdrs['content-type'] : 'application/json ; charset=utf8');
 

@@ -319,7 +319,12 @@ class AMQP {
   _item_to_amqp (item, message) {
     message.durable = true;
     message.delivery_count = item.tries;
-    message.body = item.payload;
+    message.body =           item.payload;
+    
+    if (message.application_properties == undefined) message.application_properties = {};
+    if (message.message_annotations ==    undefined) message.message_annotations =    {};
+    if (message.application_properties == undefined) message.application_properties = {};
+    if (message.footer ==                 undefined) message.footer =                 {};
 
     if (item.hdrs['subject'])          message.subject =          item.hdrs['subject'];
     if (item.hdrs['content-type'])     message.content_type =     item.hdrs['content-type'];
@@ -340,11 +345,13 @@ class AMQP {
     if (item.hdrs['x-amqp-reply-to-group-id']) message.reply_to_group_id = item.hdrs['x-amqp-reply-to-group-id'];
 
     _.each (item.hdrs, (v, k) => {
-      if (k.startsWith ('x-amqp-da-')) {const nk = k.substr (10); if (message.delivery_annotations ==   undefined) {message.delivery_annotations =   {};} message.delivery_annotations[nk] = v;}
-      if (k.startsWith ('x-amqp-ma-')) {const nk = k.substr (10); if (message.message_annotations ==    undefined) {message.message_annotations =    {};} message.message_annotations[nk] = v;}
-      if (k.startsWith ('x-amqp-ap-')) {const nk = k.substr (10); if (message.application_properties == undefined) {message.application_properties = {};} message.application_properties[nk] = v;}
-      if (k.startsWith ('x-amqp-ft-')) {const nk = k.substr (10); if (message.footer ==                 undefined) {message.footer =                 {};} message.footer[nk] = v;}
+      if (k.startsWith ('x-amqp-da-')) {const nk = k.substr (10); message.delivery_annotations[nk] = v;}
+      if (k.startsWith ('x-amqp-ma-')) {const nk = k.substr (10); message.message_annotations[nk] = v;}
+      if (k.startsWith ('x-amqp-ap-')) {const nk = k.substr (10); message.application_properties[nk] = v;}
+      if (k.startsWith ('x-amqp-ft-')) {const nk = k.substr (10); message.footer[nk] = v;}
     });
+
+    message.application_properties['x-mature'] = item.mature.toISOString ();
   }
 
 
@@ -388,7 +395,7 @@ class AMQP {
       }
 
       // no error
-      logger.verbose ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item);
+      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item);
 
       const tag = item._id.toString();
 
@@ -619,6 +626,14 @@ class AMQP {
     if (message.group_id)          opts.hdrs['x-amqp-group-id'] =          message.group_id;
     if (message.reply_to_group_id) opts.hdrs['x-amqp-reply-to-group-id'] = message.reply_to_group_id;
 
+    if (message.application_properties) {
+      const x_next_t =  parseInt (message.application_properties['x-next-t']);  delete message.application_properties['x-next-t'];
+      const x_delta_t = parseInt (message.application_properties['x-delta-t']); delete message.application_properties['x-delta-t'];
+
+      if (x_next_t)  opts.mature = x_next_t;
+      if (x_delta_t) opts.delay = Math.floor(x_delta_t / 1000);
+    }
+
     _.each (message.delivery_annotations,   (v, k) => opts.hdrs['x-amqp-da-' + k] = v + '');
     _.each (message.message_annotations,    (v, k) => opts.hdrs['x-amqp-ma-' + k] = v + '');
     _.each (message.application_properties, (v, k) => opts.hdrs['x-amqp-ap-' + k] = v + '');
@@ -632,7 +647,7 @@ class AMQP {
     const name =    context.receiver.name;
     const addr =    context.receiver.target.address;
 
-    logger.info ('[%s][%s] got message: %o', conn_id, name, context.message);
+    logger.debug ('[%s][%s] got message: %o', conn_id, name, context.message);
     
     const q = context.receiver.__q;
     const msg = context.message.body;

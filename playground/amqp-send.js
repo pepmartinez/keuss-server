@@ -1,13 +1,23 @@
 var container = require('rhea');
 
 var confirmed = 0, sent = 0;
-var total = 1111;
+var total = 1;
 
 container.on('sendable', context => {
     while (context.sender.sendable() && sent < total) {
         sent++;
         console.log('sent ' + sent);
-        context.sender.send ({message_id:sent, body:{'sequence':sent}})
+        context.sender.send ({
+            subject: 'punk is not dead',
+            message_id: sent, 
+            content_type: 'application/json',
+            application_properties: {
+                ein: 1,
+                zwei: 'dos',
+                'x-delta-t': 7000
+            },
+            body: {'sequence':sent}
+        })
     }
 });
 
