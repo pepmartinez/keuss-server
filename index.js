@@ -13,12 +13,21 @@ var defaults = {
   stomp: {
     port: 61613,
     keepalive_interval: 2000,
-    read_timeout: 12000
+    read_timeout: 12000,
+    parallel: 3,
+    wsize: 1024
   },
   amqp: {
     port: 5672,
-    wsize: 128,
-    parallel: 3
+    wsize: 1024,
+    parallel: 3,
+    retry: {
+      delay: {
+        c0: 3,
+        c1: 3,
+        c2: 3
+      }
+    }
   },
   namespaces: {}
 };
