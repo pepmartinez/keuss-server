@@ -248,7 +248,7 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__connection_error (context) {
-    logger.info ('_on__connection_error: %o', context.error);
+    logger.error ('_on__connection_error: %o', context.error);
     // do not manage (socket gets closed)
   }
 
@@ -270,7 +270,7 @@ class AMQP {
   //////////////////////////////////////////////////
   _on__protocol_error (err) {
     // nothing to do but log it: socket will be closed
-    logger.info ('_on__protocol_error: %o', err);
+    logger.error ('_on__protocol_error: %o', err);
   }
 
 
@@ -305,7 +305,7 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__receiver_error (context) {
-    logger.info ('_on__receiver_error: %o', context.error);
+    logger.error ('_on__receiver_error: %o', context.error);
     // do not manage (socket gets closed)
   }
 
@@ -540,7 +540,7 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__sender_error (context) {
-    logger.info ('_on__sender_error: %o', context.error);
+    logger.error ('_on__sender_error: %o', context.error);
     // do not manage (socket gets closed)
   }
 
@@ -552,7 +552,7 @@ class AMQP {
     const name =    context.sender.name;
 
     this._amqp_metrics.amqp_senders.dec ();
-    logger.info ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
+    logger.verbose ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
   }
 
 
@@ -575,7 +575,7 @@ class AMQP {
     context.receiver.__q = q;
 
     this._amqp_metrics.amqp_receivers.inc ();
-    logger.info ('[%s] new receiver [%s] opened: attached to queue %s', conn_id, name, target.address);
+    logger.verbose ('[%s] new receiver [%s] opened: attached to queue %s', conn_id, name, target.address);
   }
 
 
@@ -590,7 +590,7 @@ class AMQP {
       logger.error ('while opening a sender: %s', q);
       return context.sender.close ({
         condition: 'amqp:not-found',
-        description: `while trying to get queue [${target.address}] for sender: ${q}`
+        description: `while trying to get queue [${src.address}] for sender: ${q}`
       });
     }
 
@@ -600,7 +600,7 @@ class AMQP {
     context.sender.__pending_tids = 0;
 
     this._amqp_metrics.amqp_senders.inc ();
-    logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
+    logger.verbose ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
   }
 
 
@@ -661,7 +661,7 @@ class AMQP {
 
     q.push (msg, opts, (err, res) => {
       if (err) {
-        logger.info ('Could not push to %s@%s: %o', q.name(), q.ns(), err);
+        logger.error ('Could not push to %s@%s: %o', q.name(), q.ns(), err);
 
         return context.delivery.reject ({
           condition: 'amqp:internal-error',
