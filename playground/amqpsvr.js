@@ -1,10 +1,6 @@
 const container = require('rhea');
 
-function match_source_address(link, address) {
-    console.log ('==== match [%s] - [%s]', link, address);
-    return link && link.local && link.local.attach && link.local.attach.source
-        && link.local.attach.source.value[0].toString() === address;
-}
+
 
 
 container.on ('connection_open', context => {
@@ -106,7 +102,7 @@ container.on ('receiver_open', context => {
 
 container.on ('sender_open', context => {
     console.log ('==== %s sender_open: we want attach to %s', context.connection.options.id, context.sender.remote.attach.source.address);
-    context.sender.set_source (context.sender.remote.attach.source);
+    console.log ('ssm',  context.sender.remote.attach.rcv_settle_mode);
 });
 
 
@@ -122,19 +118,25 @@ container.on ('message', context => {
     }
 
     var upper = request.body.toString().toUpperCase();
-    response.body = upper;
-
-    var o = context.connection.find_sender (s => match_source_address (s, reply_to));
-    if (o) {
-        o.send(response);
-    }
 });
 
 
-const server = container.listen ({'port': 5672});
+const server = container.listen ({
+    port: 5672,
+    receiver_options: {
+//        autoaccept: false
+      },
+      sender_options: {
+//        autosettle: true,
+//        autoaccept: true,
+//        snd_settle_mode: 0
+      },
+});
+
 server.once ('listening', () => {
     console.log ('now listening');
 });
+
 server.once ('error', err => {
     console.error ('listening error:', err);
 });
