@@ -82,7 +82,7 @@ class AMQP {
   _cancel_pending () {
     _.forEach (this._pending_tids, (val, tid) => {
       val.q.cancel (tid);
-      logger.verbose ('cancelled pending TID [%s] on queue %s@%s', tid, q.name(), q.ns());
+      logger.verbose ('cancelled pending TID [%s] on queue %s@%s', tid, val.q.name(), val.q.ns());
     });
   }
 
@@ -669,7 +669,7 @@ class AMQP {
         });
       }
 
-      logger.info ('pushed new mesg to %s@%s: %o', q.name(), q.ns(), res);
+      logger.verbose ('pushed new mesg to %s@%s: %o', q.name(), q.ns(), res);
       context.delivery.accept ();
     });
   }
