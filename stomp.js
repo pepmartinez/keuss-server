@@ -171,11 +171,6 @@ class QConsumer {
 
       this._window_release ();
       if (cb) cb (err);
-      let st = 'ok';
-      if (err) st = 'ko';
-      else if (res == 'deadletter') st = 'deadletter';
-      else if (!res) st = 'notfound';
-
       this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : ((res === false) ? 'deadletter' : 'ok'))).inc ();
     });
   }
