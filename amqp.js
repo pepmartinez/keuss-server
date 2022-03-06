@@ -95,20 +95,20 @@ class AMQP {
     _.forEach (this._pending_acks, (val, id) => {
       tasks.push (cb => val.q.ko (val.msg, next_t, (err, res) => {
         if (err) {
-//          this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ko').inc ();
+          this._metrics.keuss_q_rollback .labels ('stomp', val.q.ns(), val.q.name(), 'ko').inc ();
           logger.error ('error while rolling back pending ack [%s]: %o', id, err);
         }
         else {
           if (res == 'deadletter') {
-//            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'deadletter').inc ();
+            this._metrics.keuss_q_rollback .labels ('amqp', val.q.ns(), val.q.name(), 'deadletter').inc ();
             logger.verbose ('rolled back pending ack [%s] resulted in move-to-deadletter. No more retries will happen', id);
           }
           else if (!res) {
-//            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'notfound').inc ();
+            this._metrics.keuss_q_rollback .labels ('amqp', val.q.ns(), val.q.name(), 'notfound').inc ();
             logger.error ('while rolling back pending ack [%s]: no such element', id);
           }
           else {
-//            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ok').inc ();
+            this._metrics.keuss_q_rollback .labels ('amqp', val.q.ns(), val.q.name(), 'ok').inc ();
             logger.verbose ('rolled back pending ack [%s]', id);
           }
         }
@@ -311,7 +311,12 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _on__receiver_close (context) {
-    logger.info ('_on__receiver_close');
+    const conn_id = context.connection.options.id;
+    const addr =    context.receiver.remote.attach.target.address;
+    const name =    context.receiver.name;
+
+    this._amqp_metrics.amqp_receivers.dec ();
+    logger.verbose ('[conn %s][receiver %s][addr %s] receiver is now closed', conn_id, name, addr);
   }
 
 
@@ -385,6 +390,7 @@ class AMQP {
       if (err) {
         if (err == 'cancel') {
           // consumer cancelled, end intent
+          this._metrics.keuss_q_reserve.labels ('amqp', q.ns(), q.name(), 'cancel').inc ();
           logger.debug ('sender %s: send cancelled while pop from queue %s@%s', cid, q.name(), q.ns());
           return;
         }
@@ -418,6 +424,7 @@ class AMQP {
       logger.debug ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
 
       this._send_one (conn_id, sender, q);
+      this._metrics.keuss_q_reserve.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
     });
 
     // count another pending tid (waiting for queue.pop())
@@ -469,6 +476,7 @@ class AMQP {
       }
 
       logger.debug ('[conn %s][sender %s] accepted message with tag %s', conn_id, name, tag);
+      this._metrics.keuss_q_commit .labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 
@@ -502,7 +510,8 @@ class AMQP {
         this._send_one (conn_id, sender, q);
       }
 
-      logger.verbose ('[conn %s][sender %s] rolled-back message [%s] with delay of %d sec, rollback-result %o', conn_id, name, tag, delay, res);
+      logger.debug ('[conn %s][sender %s] rolled-back message [%s] with delay of %d sec, rollback-result %o', conn_id, name, tag, delay, res);
+      this._metrics.keuss_q_rollback .labels ('amqp', q.ns(), q.name(), (err ? 'ko' : ((res === false) ? 'deadletter' : 'ok'))).inc ();
     });
   }
 
@@ -671,12 +680,13 @@ class AMQP {
 
       logger.verbose ('pushed new mesg to %s@%s: %o', q.name(), q.ns(), res);
       context.delivery.accept ();
+      this._metrics.keuss_q_push.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
 
 
   //////////////////////////////////////////////////
-  _create_metric_amqp (id, help) {
+  _create_metric_amqp (id, help, collect) {
     let the_metric = this._context.promster.register.getSingleMetric('amqp_' + id);
 
     if (the_metric) {
@@ -684,8 +694,9 @@ class AMQP {
     }
     else {
       this._amqp_metrics['amqp_' + id] = new this._context.promster.Gauge ({
-        name: 'amqp_' + id,
-        help: help
+        name:    'amqp_' + id,
+        help:    help,
+        collect: collect
       });
     }
   }
@@ -693,11 +704,21 @@ class AMQP {
 
   //////////////////////////////////////////////////
   _create_metrics_amqp () {
+    const self = this;
     this._amqp_metrics = {};
-    this._create_metric_amqp ('connections',  'active amqp connections');
-    this._create_metric_amqp ('senders',      'active amqp senders');
-    this._create_metric_amqp ('receivers',    'active amqp receivers');
-  }
+    this._create_metric_amqp ('connections',  'active amqp connections'); // TODO use a collect func?
+    this._create_metric_amqp ('senders',      'active amqp senders');// TODO use a collect func?
+    this._create_metric_amqp ('receivers',    'active amqp receivers');// TODO use a collect func?
+    this._create_metric_amqp ('pending_acks', 'in-flight messages, pending ack', function () {this.set (_.size (self._pending_acks))} );
+    this._create_metric_amqp ('pending_tids', 'idle consumers',                  function () {this.set (_.size (self._pending_tids))});
+    this._create_metric_amqp ('wsize',        'total window size',               function () {
+      let wsize = 0;
+      _.forEach (self._connections, (c, id) => {
+        c.each_sender (s => wsize += self._window_size);
+        this.set (wsize);
+      });
+    });
+  };
 
 
   ///////////////////////////////////////////////////////////////////////////
