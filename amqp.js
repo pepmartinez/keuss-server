@@ -221,7 +221,6 @@ class AMQP {
     const id = context.connection.options.id;
     this._connections [id] = context.connection;
     logger.info ('new connection [%s] opened', id);
-    this._amqp_metrics.amqp_connections.inc ();
   }
 
 
@@ -233,15 +232,12 @@ class AMQP {
     context.connection.each_sender (s => {
       logger.verbose ('see dangling sender %s', s.name);
       // TODO cancel its tids
-      if (s.is_open ()) this._amqp_metrics.amqp_senders.dec ();
     });
     
     context.connection.each_receiver (s => {
       logger.verbose ('see dangling receiver %s', s.name);
-      if (s.is_open ()) this._amqp_metrics.amqp_receivers.dec ();
     });
 
-    this._amqp_metrics.amqp_connections.dec ();
     logger.info ('connection [%s] closed', id);
   }
 
@@ -315,7 +311,6 @@ class AMQP {
     const addr =    context.receiver.remote.attach.target.address;
     const name =    context.receiver.name;
 
-    this._amqp_metrics.amqp_receivers.dec ();
     logger.verbose ('[conn %s][receiver %s][addr %s] receiver is now closed', conn_id, name, addr);
   }
 
@@ -560,7 +555,6 @@ class AMQP {
     const addr =    context.sender.source.address;
     const name =    context.sender.name;
 
-    this._amqp_metrics.amqp_senders.dec ();
     logger.verbose ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
   }
 
@@ -583,7 +577,6 @@ class AMQP {
     context.receiver.set_target (target);
     context.receiver.__q = q;
 
-    this._amqp_metrics.amqp_receivers.inc ();
     logger.verbose ('[%s] new receiver [%s] opened: attached to queue %s', conn_id, name, target.address);
   }
 
@@ -608,7 +601,6 @@ class AMQP {
     context.sender.__pending_acks = 0;
     context.sender.__pending_tids = 0;
 
-    this._amqp_metrics.amqp_senders.inc ();
     logger.verbose ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
   }
 
@@ -706,17 +698,25 @@ class AMQP {
   _create_metrics_amqp () {
     const self = this;
     this._amqp_metrics = {};
-    this._create_metric_amqp ('connections',  'active amqp connections'); // TODO use a collect func?
-    this._create_metric_amqp ('senders',      'active amqp senders');// TODO use a collect func?
-    this._create_metric_amqp ('receivers',    'active amqp receivers');// TODO use a collect func?
+    this._create_metric_amqp ('connections',  'active amqp connections',         function () {this.set (_.size (self._connections))} );
+    this._create_metric_amqp ('senders',      'active amqp senders',             function () {
+      let count = 0;
+      _.forEach (self._connections, c => c.each_sender (() => count++));
+      this.set (count);
+    });
+    this._create_metric_amqp ('receivers',    'active amqp receivers',           function () {
+      let count = 0;
+      _.forEach (self._connections, c => c.each_receiver (() => count++));
+      this.set (count);
+    });
     this._create_metric_amqp ('pending_acks', 'in-flight messages, pending ack', function () {this.set (_.size (self._pending_acks))} );
     this._create_metric_amqp ('pending_tids', 'idle consumers',                  function () {this.set (_.size (self._pending_tids))});
     this._create_metric_amqp ('wsize',        'total window size',               function () {
       let wsize = 0;
       _.forEach (self._connections, (c, id) => {
         c.each_sender (s => wsize += self._window_size);
-        this.set (wsize);
       });
+      this.set (wsize);
     });
   };
 
