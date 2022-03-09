@@ -483,10 +483,9 @@ class AMQP {
     const name =    sender.name;
     const tag =     context.delivery.tag;
     const q =       sender.__q;
-    const error =   context.delivery?.remote_state?.error;
+    const error =   context.delivery?.remote_state?.error || {};
 
     logger.verbose ('[conn %s][sender %s] received rejected with tag %s: %s', conn_id, name, tag, error.description || error.condition || error.info);
-
 
     const entry = this._pending_acks[tag];
     if (!entry) return logger.warn ('[conn %s][sender %s] nonexistent pending message with tag %s', conn_id, name, tag);
@@ -577,7 +576,7 @@ class AMQP {
     context.receiver.set_target (target);
     context.receiver.__q = q;
 
-    logger.verbose ('[%s] new receiver [%s] opened: attached to queue %s', conn_id, name, target.address);
+    logger.verbose ('[%s] new receiver [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
   }
 
 
