@@ -230,7 +230,7 @@ class AMQP {
     delete this._connections [id];
 
     context.connection.each_sender (s => {
-      logger.info ('see dangling sender %s', s.name);
+      logger.info ('existing dangling sender %s', s.name);
         // cancel its tids
         _.each (s.__pending_tids, (v, k) => {
           logger.info ('cancelling tid %s', k);
@@ -239,7 +239,7 @@ class AMQP {
     });
     
     context.connection.each_receiver (s => {
-      logger.verbose ('see dangling receiver %s', s.name);
+      logger.info ('existing dangling receiver %s', s.name);
     });
 
     logger.info ('connection [%s] closed', id);
@@ -315,7 +315,7 @@ class AMQP {
     const addr =    context.receiver.remote.attach.target.address;
     const name =    context.receiver.name;
 
-    logger.verbose ('[conn %s][receiver %s][addr %s] receiver is now closed', conn_id, name, addr);
+    logger.info ('[conn %s][receiver %s][addr %s] receiver is now closed', conn_id, name, addr);
   }
 
 
@@ -362,17 +362,17 @@ class AMQP {
   //////////////////////////////////////////////////
   _send_one (conn_id, sender, q) {
     if (! sender.sendable ()) {
-      logger.debug ('[conn %s][sender %s] sendable burst ended', conn_id, sender.name);
+      logger.debug ('[conn %s][sender %s] sender is not sendable, desist', conn_id, sender.name);
       return;
     }
 
-      logger.debug ('[conn %s][sender %s] already sending', conn_id, sender.name);
     if (_.size (sender.__pending_tids) >= this._parallel) {
+      logger.debug ('[conn %s][sender %s] already sending, desist', conn_id, sender.name);
       return;
     }
 
     if (this._window_used (sender) >= this._window_size) {
-      logger.debug ('[conn %s][sender %s] too many pending acks, waiting', conn_id, sender.name);
+      logger.verbose ('[conn %s][sender %s] too many pending acks, waiting', conn_id, sender.name);
       return;
     }
 
@@ -390,7 +390,7 @@ class AMQP {
         if (err == 'cancel') {
           // consumer cancelled, end intent
           this._metrics.keuss_q_reserve.labels ('amqp', q.ns(), q.name(), 'cancel').inc ();
-          logger.debug ('sender %s: send cancelled while pop from queue %s@%s', cid, q.name(), q.ns());
+          logger.info ('sender %s: send cancelled while pop from queue %s@%s', cid, q.name(), q.ns());
           return;
         }
         else {
@@ -400,7 +400,7 @@ class AMQP {
       }
 
       // no error
-      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item);
+      logger.debug ('[conn %s][sender %s] got element from queue %s@%s: %o', conn_id, sender.name, q.name(), q.ns(), item.payload);
 
       const tag = item._id.toString();
 
@@ -420,7 +420,7 @@ class AMQP {
 
       sender.send (msg, tag);
 
-      logger.debug ('[conn %s][sender %s] sent (%s)', conn_id, cid, tag);
+      logger.debug ('[conn %s][sender %s] sent with tag %s: %o', conn_id, cid, tag, item.payload);
 
       this._send_one (conn_id, sender, q);
       this._metrics.keuss_q_reserve.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
@@ -477,7 +477,7 @@ class AMQP {
         this._send_one (conn_id, sender, q);
       }
 
-      logger.debug ('[conn %s][sender %s] accepted message with tag %s', conn_id, name, tag);
+      logger.verbose ('[conn %s][sender %s] accepted message with tag %s: %o', conn_id, name, tag, entry.msg.payload);
       this._metrics.keuss_q_commit .labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
@@ -561,7 +561,7 @@ class AMQP {
     const addr =    context.sender.source.address;
     const name =    context.sender.name;
 
-    logger.verbose ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
+    logger.info ('see dangling sender %s', s.name);
       
     // cancel its tids
     _.each (context.sender.__pending_tids, (v, k) => {
@@ -569,6 +569,7 @@ class AMQP {
       v.q.cancel (k);
     });
 
+    logger.info ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
   }
 
 
@@ -614,7 +615,7 @@ class AMQP {
     context.sender.__pending_acks = 0;
     context.sender.__pending_tids = {};
 
-    logger.verbose ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
+    logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
   }
 
 
