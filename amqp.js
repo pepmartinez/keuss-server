@@ -74,7 +74,7 @@ class AMQP {
 
   ///////////////////////////////////////////
   _window_used (sender) {
-    return sender.__pending_acks + sender.__pending_tids;
+    return sender.__pending_acks + _.size (sender.__pending_tids);
   }
 
 
@@ -163,7 +163,7 @@ class AMQP {
           parallel:     this._parallel,
           window_size:  this._window_size,
           pending_acks: s.__pending_acks,
-          pending_tids: s.__pending_tids
+          pending_tids: _.size (s.__pending_tids)
         }
       }); 
 
@@ -230,8 +230,12 @@ class AMQP {
     delete this._connections [id];
 
     context.connection.each_sender (s => {
-      logger.verbose ('see dangling sender %s', s.name);
-      // TODO cancel its tids
+      logger.info ('see dangling sender %s', s.name);
+        // cancel its tids
+        _.each (s.__pending_tids, (v, k) => {
+          logger.info ('cancelling tid %s', k);
+          v.q.cancel (k);
+        });
     });
     
     context.connection.each_receiver (s => {
@@ -362,8 +366,8 @@ class AMQP {
       return;
     }
 
-    if (sender.__pending_tids >= this._parallel) {
       logger.debug ('[conn %s][sender %s] already sending', conn_id, sender.name);
+    if (_.size (sender.__pending_tids) >= this._parallel) {
       return;
     }
 
@@ -380,7 +384,7 @@ class AMQP {
     logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
     const tid = q.pop (cid, opts, (err, item) => {
       delete this._pending_tids[tid];
-      sender.__pending_tids--;
+      delete sender.__pending_tids[tid];
 
       if (err) {
         if (err == 'cancel') {
@@ -423,7 +427,10 @@ class AMQP {
     });
 
     // count another pending tid (waiting for queue.pop())
-    sender.__pending_tids++;
+    sender.__pending_tids[tid] = {
+      t: new Date(),
+      q: q
+    };
 
     // also store the tid globally, to ease housekeeping
     this._pending_tids[tid] = {
@@ -555,6 +562,13 @@ class AMQP {
     const name =    context.sender.name;
 
     logger.verbose ('[conn %s][sender %s][addr %s] sender is now closed', conn_id, name, addr);
+      
+    // cancel its tids
+    _.each (context.sender.__pending_tids, (v, k) => {
+      logger.info ('cancelling tid %s', k);
+      v.q.cancel (k);
+    });
+
   }
 
 
@@ -598,7 +612,7 @@ class AMQP {
     context.sender.set_source (src);
     context.sender.__q = q;
     context.sender.__pending_acks = 0;
-    context.sender.__pending_tids = 0;
+    context.sender.__pending_tids = {};
 
     logger.verbose ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
   }
