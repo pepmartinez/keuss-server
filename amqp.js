@@ -186,8 +186,8 @@ class AMQP {
       'connection_open',
       'connection_close',
       'connection_error',
-//      'session_open',
-//      'session_close',
+      'session_open',
+      'session_close',
 //      'session_error',
       'protocol_error',
       'error',
@@ -253,19 +253,21 @@ class AMQP {
   }
 
   //////////////////////////////////////////////////
-//  _on__session_open (context) {
-//    logger.info ('_on__session_open');
-//  }
+  _on__session_open (context) {
+    logger.verbose ('new session opened');
+  }
 
   //////////////////////////////////////////////////
-//  _on__session_close (context) {
-//    logger.info ('_on__session_close');
-//  }
+  _on__session_close (context) {
+    logger.verbose ('session closed');
+  }
+
 
   //////////////////////////////////////////////////
 //  _on__session_error (context) {
 //    logger.info ('_on__session_error');
 //  }
+
 
   //////////////////////////////////////////////////
   _on__protocol_error (err) {
@@ -293,21 +295,25 @@ class AMQP {
 // TODO see to it for exactly-once deliveries ??
 //  }
 
+
   //////////////////////////////////////////////////
   _on__receiver_drained (context) {
     logger.info ('_on__receiver_drained');
   }
+
 
   //////////////////////////////////////////////////
 //  _on__receiver_flow (context) {
 //    logger.info ('_on__receiver_flow');
 //  }
 
+
   //////////////////////////////////////////////////
   _on__receiver_error (context) {
     logger.error ('_on__receiver_error: %o', context.error);
     // do not manage (socket gets closed)
   }
+
 
   //////////////////////////////////////////////////
   _on__receiver_close (context) {
@@ -561,7 +567,7 @@ class AMQP {
     const addr =    context.sender.source.address;
     const name =    context.sender.name;
 
-    logger.info ('see dangling sender %s', s.name);
+    logger.info ('closing sender %s', name);
       
     // cancel its tids
     _.each (context.sender.__pending_tids, (v, k) => {
