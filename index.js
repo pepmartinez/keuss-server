@@ -15,11 +15,11 @@ var defaults = {
     keepalive_interval: 2000,
     read_timeout: 12000,
     parallel: 3,
-    wsize: 1024
+    wsize: 1000
   },
   amqp: {
     port: 5672,
-    wsize: 1024,
+    wsize: 512,
     parallel: 3,
     retry: {
       delay: {
