@@ -252,10 +252,12 @@ class AMQP {
     // do not manage (socket gets closed)
   }
 
+
   //////////////////////////////////////////////////
   _on__session_open (context) {
     logger.verbose ('new session opened');
   }
+
 
   //////////////////////////////////////////////////
   _on__session_close (context) {
@@ -622,6 +624,8 @@ class AMQP {
     context.sender.__pending_tids = {};
 
     logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
+//    logger.info ('%o', context.sender.session.outgoing.deliveries);
+//    logger.info ('%o', context.session.outgoing.deliveries);
   }
 
 
