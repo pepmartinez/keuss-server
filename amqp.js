@@ -46,11 +46,11 @@ class AMQP {
 //        autosettle: false
 //        snd_settle_mode: 1
       },
-      port: this._config.port
+      port: this._config.port || 5672
     });
 
     this._net_server.once ('listening', () => {
-      logger.info ('AMQP server listening at port %d', this._config.port);
+      logger.info ('AMQP server listening at port %d', this._config.port || 5672);
       cb ();
     });
 
