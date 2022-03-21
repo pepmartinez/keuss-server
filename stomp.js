@@ -652,7 +652,7 @@ class STOMP {
 
       // pass x-ks-hdr-* extra headers
       _.each (item.hdrs, (v, k) => {
-        if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v);
+        if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v + '');
       });
 
       var body = item.payload;

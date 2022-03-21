@@ -506,10 +506,16 @@ _.forEach([
           delivery_count: 0,
           message_annotations: {},
           message_id: /.+/,
-//          subject: 'punk is not dead',
-//          content_type: 'application/json',
-//          application_properties: { ein: '1', zwei: 'dos', 'x-mature': /.+/ }
-          application_properties: { 'x-mature': /.+/ },
+          subject: 'punk is not dead',
+          content_type: 'application/json',
+          application_properties: { 
+            ein: '1', 
+            zwei: 'dos', 
+            'x-mature': /.+/ ,
+            'x-dl-from-queue': 'amqp_test_3',
+            'x-dl-t': /.+/,
+            'x-dl-tries': 5,
+          },
           footer: {},
           body: { sequence: 7 }
         });

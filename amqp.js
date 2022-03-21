@@ -2,7 +2,6 @@ const _ =     require ('lodash');
 const async = require ('async');
 const Rhea =  require ('rhea');
 const Log =   require ('winston-log-space');
-const { throws } = require('should');
 
 const logger = Log.logger ('amqp');
 
@@ -358,9 +357,10 @@ class AMQP {
 
     _.each (item.hdrs, (v, k) => {
       if (k.startsWith ('x-amqp-da-')) {const nk = k.substr (10); message.delivery_annotations[nk] = v;}
-      if (k.startsWith ('x-amqp-ma-')) {const nk = k.substr (10); message.message_annotations[nk] = v;}
-      if (k.startsWith ('x-amqp-ap-')) {const nk = k.substr (10); message.application_properties[nk] = v;}
-      if (k.startsWith ('x-amqp-ft-')) {const nk = k.substr (10); message.footer[nk] = v;}
+      else if (k.startsWith ('x-amqp-ma-')) {const nk = k.substr (10); message.message_annotations[nk] = v;}
+      else if (k.startsWith ('x-amqp-ap-')) {const nk = k.substr (10); message.application_properties[nk] = v;}
+      else if (k.startsWith ('x-amqp-ft-')) {const nk = k.substr (10); message.footer[nk] = v;}
+      else if (k.startsWith ('x-'))         {message.application_properties[k] = v;}
     });
 
     message.application_properties['x-mature'] = item.mature.toISOString ();
