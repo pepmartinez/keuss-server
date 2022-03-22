@@ -162,7 +162,8 @@ class AMQP {
           parallel:     this._parallel,
           window_size:  this._window_size,
           pending_acks: s.__pending_acks,
-          pending_tids: _.size (s.__pending_tids)
+          pending_tids: _.size (s.__pending_tids),
+          mode:         (s.__do_reserve ? 'at-least-once' : 'at-most-once')
         }
       }); 
 
@@ -385,8 +386,9 @@ class AMQP {
     }
 
     const cid = sender.name;
+
     const opts = {
-      reserve: true
+      reserve: sender.__do_reserve
     };
 
     logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
@@ -412,15 +414,18 @@ class AMQP {
 
       const tag = item._id.toString();
 
-      this._pending_acks[tag] = {
-        t: new Date(),
-        msg: item,
-        q: q
-      };
+      if (sender.__do_reserve) {
+        // keep track of the pending ack if we needed to reserve
+        this._pending_acks[tag] = {
+          t: new Date(),
+          msg: item,
+          q: q
+        };
 
-      sender.__pending_acks++;
+        sender.__pending_acks++;
 
-      logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
+        logger.debug ('[conn %s][sender %s] new pending ack [%s]', conn_id, cid, tag);
+      }
 
       const msg = {};
       this._item_to_amqp (item, msg);
@@ -431,7 +436,13 @@ class AMQP {
       logger.debug ('[conn %s][sender %s] sent with tag %s: %o', conn_id, cid, tag, item.payload);
 
       this._send_one (conn_id, sender, q);
-      this._metrics.keuss_q_reserve.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
+
+      if (sender.__do_reserve) {
+        this._metrics.keuss_q_reserve.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
+      }
+      else {
+        this._metrics.keuss_q_pop.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
+      }
     });
 
     // count another pending tid (waiting for queue.pop())
@@ -617,15 +628,18 @@ class AMQP {
         description: `while trying to get queue [${src.address}] for sender: ${q}`
       });
     }
+    
+    // honor remote value for snd_settle_mode
+    context.sender.local.attach.snd_settle_mode = context.sender.snd_settle_mode;
+
 
     context.sender.set_source (src);
     context.sender.__q = q;
     context.sender.__pending_acks = 0;
     context.sender.__pending_tids = {};
+    context.sender.__do_reserve = context.sender.snd_settle_mode != 1;
 
-    logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
-//    logger.info ('%o', context.sender.session.outgoing.deliveries);
-//    logger.info ('%o', context.session.outgoing.deliveries);
+    logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s, snd_settle_mode is %d', conn_id, name, q.name (), q.ns (), context.sender.snd_settle_mode);
   }
 
 

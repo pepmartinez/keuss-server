@@ -50,8 +50,6 @@ let i = 0;
 function send_one (context) {
   const delivery = context.sender.send ({message_id: 'id-' + i, body: {seq: i, text: 'wrqwerqwreqwerqwerqwerq'}}, 'tagtagtag_' + i);
 
-  delivery.settled = true;
-
   console.log ('sent one msg with tag %s', 'tagtagtag_' + i);
   i++;
 
@@ -60,7 +58,7 @@ function send_one (context) {
   console.log ('out size %d head %d tail %d', odelv.size, odelv.head, odelv.tail)
   console.log ('in  size %d head %d tail %d', idelv.size, idelv.head, idelv.tail)
 
-  if (i < 2222) {
+  if (i < 5) {
       setTimeout (() => send_one (context), 50);
   }
 }
@@ -69,17 +67,7 @@ function send_one (context) {
 
 container.on ('sendable', context => {
   console.log('==== %s %s Sendable', context.connection.options.id, context.sender.source.address);
-
-//    while (context.sender.sendable() && (i < 5)) {
-//      const tag = 'asdfghjkl__' + i + '__' 
-//      context.sender.send ({message_id: tag, body: {seq: i, text: 'wrqwerqwreqwerqwerqwerq'}}, tag);
-//      i++;
-//      console.log ('sent #%d (%s)', i, tag);
-//    }
-
   send_one (context);
-
-//    console.log ('sendable burst ended');
 });
 
 container.on ('accepted', context => {
@@ -114,7 +102,8 @@ let snd = null;
 container.on ('sender_open', context => {
     console.log ('==== %s sender_open: we want attach to %s', context.connection.options.id, context.sender.remote.attach.source.address);
     snd = context.sender;
-    console.log ('ssm',  context.sender.remote.attach.rcv_settle_mode);
+    snd.local.attach.snd_settle_mode = context.sender.snd_settle_mode;
+    console.log ('ssm', snd.local.attach.snd_settle_mode);
 });
 
 

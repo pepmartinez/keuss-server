@@ -1,7 +1,7 @@
 var container = require('rhea').create_container ();
 
 var confirmed = 0, sent = 0;
-var total = 111;
+var total = 5000000;
 
 container.on('sendable', context => {
     while (context.sender.sendable() && sent < total) {
@@ -34,4 +34,6 @@ container.on('disconnected', context => {
     sent = confirmed;
 });
 
-container.connect ({port: 5672, host: 'localhost'}).open_sender('/queue/N/aaa');
+container
+.connect ({port: 5672, host: 'localhost'})
+.open_sender('/queue/N/aaa');
