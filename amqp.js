@@ -632,7 +632,6 @@ class AMQP {
     // honor remote value for snd_settle_mode
     context.sender.local.attach.snd_settle_mode = context.sender.snd_settle_mode;
 
-
     context.sender.set_source (src);
     context.sender.__q = q;
     context.sender.__pending_acks = 0;
