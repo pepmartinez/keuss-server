@@ -194,10 +194,10 @@ _.forEach([
   'mongo_tape',
   'bucket_mongo_safe'
 ], function (namespace) {
-  before (function (done) {
-    var Log = require ('winston-log-space');
-    Log.init ({level: {default: 'verbose'}}, done);
-  });
+//  before (function (done) {
+//    var Log = require ('winston-log-space');
+//    Log.init ({level: {default: 'verbose'}}, done);
+//  });
 
   describe('STOMP reserve operations on queue namespace ' + namespace, () => {
     before(done => {
