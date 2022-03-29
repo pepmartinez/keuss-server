@@ -15,6 +15,7 @@ module.exports = {
       items: [
         'usage/rest',
         'usage/stomp',
+        'usage/amqp10',
         'usage/clustering',
         'usage/monitoring',
         'usage/gui',

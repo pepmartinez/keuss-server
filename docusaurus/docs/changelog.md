@@ -3,6 +3,10 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
+* v1.7.0:
+  * added support for AMQP 1.0
+  * use keuss v1.6.11
+  * updated other deps
 * v1.6.7:
   * use keuss v1.6.10
   * updated other deps

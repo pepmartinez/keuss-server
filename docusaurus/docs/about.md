@@ -4,9 +4,9 @@ title: About
 sidebar_label: About
 slug: /
 ---
-Job Queues' server accessible via STOMP and REST, built with keuss
+Job Queues' server accessible via STOMP, AMQP 1.0 and REST, built with keuss
 
-Keuss-server provides STOMP and REST-like interfaces atop [keuss](https://pepmartinez.github.io/keuss/), plus a simple web console to check queues' statuses. This adds an inherently distributed (with no single point of failure) job-queue service on top of Keuss functionalities
+Keuss-server provides STOMP, AMQP 1.0 and REST-like interfaces atop [keuss](https://pepmartinez.github.io/keuss/), plus a simple web console to check queues' statuses. This adds an inherently distributed (with no single point of failure) job-queue service on top of Keuss functionalities
 
 In brief, these are the features fully inherited from Keuss:
 
