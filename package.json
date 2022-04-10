@@ -36,7 +36,7 @@
     "express": "~4.17.3",
     "express-basic-auth": "~1.2.0",
     "http-shutdown": "~1.2.2",
-    "keuss": "1.6.11",
+    "keuss": "1.6.12",
     "lodash": "~4.17.21",
     "prom-client": "~14.0.1",
     "pug": "~3.0.2",
