@@ -13,7 +13,21 @@ var defaults = {
   stomp: {
     port: 61613,
     keepalive_interval: 2000,
-    read_timeout: 12000
+    read_timeout: 12000,
+    parallel: 3,
+    wsize: 1000
+  },
+  amqp: {
+    port: 5672,
+    wsize: 512,
+    parallel: 3,
+    retry: {
+      delay: {
+        c0: 3,
+        c1: 3,
+        c2: 3
+      }
+    }
   },
   namespaces: {}
 };
@@ -68,6 +82,7 @@ cconf
 
       var BaseApp = require ('./app');
       var Stomp =   require ('./stomp');
+      var Amqp =   require ('./amqp');
       var Scope =   require ('./Scope');
 
       var context = {};
@@ -86,8 +101,14 @@ cconf
         cb => {
           // init stomp server
           context.stomp_server = new Stomp (config, context);
-          context.app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status()));
+          context.app.get ('/stomp/status', (req, res) => res.send (context.stomp_server.status (req.query && req.query.v)));
           context.stomp_server.run (cb);
+        },
+        cb => {
+          // init amqp server
+          context.amqp_server = new Amqp (config, context);
+          context.app.get ('/amqp/status', (req, res) => res.send (context.amqp_server.status (req.query && req.query.v)));
+          context.amqp_server.run (cb);
         },
         cb => {
           // init http/rest server
@@ -119,6 +140,7 @@ cconf
         async.parallel ([
           cb => context.scope.drain (cb),
           cb => context.server.shutdown (cb),
+          cb => context.amqp_server.end (cb),
           cb => context.stomp_server.end (cb),
           cb => context.scope.end (cb),
           cb => {
@@ -128,6 +150,9 @@ cconf
           }
         ], err => {
           logger.info (`shutdown done`);
+
+//          require('active-handles').print();
+
         })
       }
 

@@ -1,24 +1,10 @@
 const container = require('rhea');
-const server = container.listen ({'port': 5672});
 
 
-function match_source_address(link, address) {
-    console.log ('==== match [%s] - [%s]', link, address);
-    return link && link.local && link.local.attach && link.local.attach.source
-        && link.local.attach.source.value[0].toString() === address;
-}
 
-
-container.on ('connection_open', context => {
-    console.log ('==== connection_open: ');
-});
-container.on ('connection_close', context => {
-    console.log ('==== connection_close: ');
-});
 container.on ('connection_error', context => {
     console.log ('==== connection_error: ');
 });
-
 container.on ('session_open', context => {
     console.log ('==== session_open: ');
 });
@@ -28,21 +14,12 @@ container.on ('session_close', context => {
 container.on ('session_error', context => {
     console.log ('==== session_error: ');
 });
-
 container.on ('protocol_error', context => {
     console.log ('==== protocol_error: ');
 });
-container.on ('error', context => {
-    console.log ('==== error: ');
+container.on ('error', err => {
+    console.log ('==== error: ', err);
 });
-container.on ('disconnected', context => {
-    console.log ('==== disconnected: ');
-});
-container.on ('settled', context => {
-    console.log ('==== settled: ');
-});
-
-
 container.on ('receiver_drained', context => {
     console.log ('==== receiver_drained: ');
 });
@@ -54,22 +31,6 @@ container.on ('receiver_error', context => {
 });
 container.on ('receiver_close', context => {
     console.log ('==== receiver_close: ');
-});
-
-container.on ('sendable', context => {
-    console.log ('==== sendable: ');
-});
-container.on ('accepted', context => {
-    console.log ('==== accepted: ');
-});
-container.on ('released', context => {
-    console.log ('==== released: ');
-});
-container.on ('rejected', context => {
-    console.log ('==== rejected: ');
-});
-container.on ('modified', context => {
-    console.log ('==== modified: ');
 });
 container.on ('sender_draining', context => {
     console.log ('==== sender_draining: ');
@@ -85,37 +46,102 @@ container.on ('sender_close', context => {
 });
 
 
+let i = 0;
+function send_one (context) {
+  const delivery = context.sender.send ({message_id: 'id-' + i, body: {seq: i, text: 'wrqwerqwreqwerqwerqwerq'}}, 'tagtagtag_' + i);
+
+  console.log ('sent one msg with tag %s', 'tagtagtag_' + i);
+  i++;
+
+  const odelv = context.session.outgoing.deliveries;
+  const idelv = context.session.incoming.deliveries;
+  console.log ('out size %d head %d tail %d', odelv.size, odelv.head, odelv.tail)
+  console.log ('in  size %d head %d tail %d', idelv.size, idelv.head, idelv.tail)
+
+  if (i < 5) {
+      setTimeout (() => send_one (context), 50);
+  }
+}
+
+
+
+container.on ('sendable', context => {
+  console.log('==== %s %s Sendable', context.connection.options.id, context.sender.source.address);
+  send_one (context);
+});
+
+container.on ('accepted', context => {
+    console.log ('==== %s %s accepted: accepted message with tag %s', context.connection.options.id, context.sender.source.address, context.delivery.tag);
+});
+
+container.on ('released', context => {
+    console.log ('==== %s %s released: accepted message with tag %s', context.connection.options.id, context.sender.source.address, context.delivery.tag);
+});
+
+container.on ('rejected', context => {
+    console.log ('==== %s %s rejected: accepted message with tag %s', context.connection.options.id, context.sender.source.address, context.delivery.tag);
+});
+
+container.on ('modified', context => {
+    console.log ('==== %s %s modified: accepted message with tag %s', context.connection.options.id, context.sender.source.address, context.delivery.tag);
+});
+
+container.on ('settled', context => {
+    console.log ('==== %s %s settled: settled message with tag %s', context.connection.options.id, context.sender.source.address, context.delivery.tag);
+});
+
+
+let rcv = null;
 container.on ('receiver_open', context => {
     console.log ('==== receiver_open: remote target is ', context.receiver.remote.attach.target.address);
+    rcv = context.receiver;
     context.receiver.set_target({address: context.receiver.remote.attach.target.address});
 });
 
-
+let snd = null;
 container.on ('sender_open', context => {
-    console.log ('==== sender_open: we want attach to ', context.sender.remote.attach.source.address);
-    if (context.sender.source.dynamic) {
-        var id = container.generate_uuid();
-        context.sender.set_source({address:id});
-    }
+    console.log ('==== %s sender_open: we want attach to %s', context.connection.options.id, context.sender.remote.attach.source.address);
+    snd = context.sender;
+    snd.local.attach.snd_settle_mode = context.sender.snd_settle_mode;
+    console.log ('ssm', snd.local.attach.snd_settle_mode);
 });
 
 
+container.on ('connection_open', context => {
+    console.log ('==== connection_open: ', context.connection.options.id);
+});
+
+container.on ('connection_close', context => {
+    console.log ('==== connection_close: ', context.connection.options.id);
+});
+
 container.on ('message', context => {
-    console.log('==== Received: ', context.message);
+    console.log('==== %s Received: %o', context.connection.options.id, context.message);
+    snd.send (context.message)
+});
 
-    var request = context.message;
-    var reply_to = request.reply_to;
-    var response = {to: reply_to};
+container.on ('disconnected', context => {
+    console.log ('==== disconnected: ', context.connection.options.id);
+});
 
-    if (request.correlation_id) {
-        response.correlation_id = request.correlation_id;
-    }
 
-    var upper = request.body.toString().toUpperCase();
-    response.body = upper;
 
-    var o = context.connection.find_sender (s => match_source_address (s, reply_to));
-    if (o) {
-        o.send(response);
-    }
+const server = container.listen ({
+    port: 5672,
+    receiver_options: {
+//        autoaccept: false
+      },
+      sender_options: {
+//        autosettle: true,
+//        autoaccept: true,
+//        snd_settle_mode: 0
+      },
+});
+
+server.once ('listening', () => {
+    console.log ('now listening');
+});
+
+server.once ('error', err => {
+    console.error ('listening error:', err);
 });

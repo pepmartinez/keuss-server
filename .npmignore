@@ -1,2 +1,5 @@
 .vscode/
+coverage
+.nyc_output
+docusaurus
 

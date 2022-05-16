@@ -5,7 +5,7 @@
   + add TLS
   + profile cpu/mem
 * AMQP
-  + add it?
+  + add auth
 * MQTT
   + add it?
 

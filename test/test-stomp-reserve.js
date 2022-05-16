@@ -194,10 +194,10 @@ _.forEach([
   'mongo_tape',
   'bucket_mongo_safe'
 ], function (namespace) {
-  before (function (done) {
-    var Log = require ('winston-log-space');
-    Log.init ({level: {default: 'verbose'}}, done);
-  });
+//  before (function (done) {
+//    var Log = require ('winston-log-space');
+//    Log.init ({level: {default: 'verbose'}}, done);
+//  });
 
   describe('STOMP reserve operations on queue namespace ' + namespace, () => {
     before(done => {
@@ -347,6 +347,7 @@ _.forEach([
 //            record.length.should.equal (6);
 
             objbody.should.eql ({ a: 'aaa', b: 666, c: { ca: 'rtrtr', cb: {} } });
+           
             message.headers.should.match ({
               subscription: /.+/,
               'message-id': /.+/,
@@ -354,7 +355,10 @@ _.forEach([
               'x-mature': /.+/,
               'x-tries': /.+/,
               'content-type': /^application\/json/,
-              'content-length': 46
+              'content-length': 46,
+              'x-ks-hdr-x-dl-from-queue': 'stomp_test_4',
+              'x-ks-hdr-x-dl-t': /.+/,
+              'x-ks-hdr-x-dl-tries': '5',
             });
 
             done ();

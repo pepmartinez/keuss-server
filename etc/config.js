@@ -4,7 +4,6 @@ var config = {
     users: {
     }
   },
-  
   stats: {
     memory: {
       factory: 'mem',

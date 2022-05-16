@@ -171,11 +171,6 @@ class QConsumer {
 
       this._window_release ();
       if (cb) cb (err);
-      let st = 'ok';
-      if (err) st = 'ko';
-      else if (res == 'deadletter') st = 'deadletter';
-      else if (!res) st = 'notfound';
-
       this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : ((res === false) ? 'deadletter' : 'ok'))).inc ();
     });
   }
@@ -210,16 +205,13 @@ class STOMP {
     //   subscrs: {}
     // }
     this._sessions = {};
-
     this._create_metrics_stomp ();
-
     this._ka_timer =  setInterval (() => this._keep_alive (), this._config.keepalive_interval || 1000);
-    this._rgm_timer = setInterval (() => this._refresh_gauge_metrics (), this._config.refresh_metrics_interval || 2000);
   }
 
 
   //////////////////////////////////////////////////
-  _create_metric_stomp (id, help) {
+  _create_metric_stomp (id, help, collect) {
     let the_metric = this._context.promster.register.getSingleMetric('stomp_' + id);
 
     if (the_metric) {
@@ -227,8 +219,9 @@ class STOMP {
     }
     else {
       this._stomp_metrics['stomp_' + id] = new this._context.promster.Gauge ({
-        name: 'stomp_' + id,
-        help: help
+        name:    'stomp_' + id,
+        help:    help,
+        collect: collect
       });
     }
   }
@@ -236,40 +229,38 @@ class STOMP {
 
   //////////////////////////////////////////////////
   _create_metrics_stomp () {
+    const self = this;
     this._stomp_metrics = {};
-    this._create_metric_stomp ('sessions',      'active STOMP sessions');
-    this._create_metric_stomp ('subscriptions', 'active STOMP subscriptions');
-    this._create_metric_stomp ('pending_acks',  'in-flight messages, pending ack');
-    this._create_metric_stomp ('pending_tids',  'idle consumers');
-    this._create_metric_stomp ('wsize',         'total window size');
-  }
-
-
-  ////////////////////////////////////////////////////
-  _refresh_gauge_metrics () {
-    let sessions = 0;
-    let subscriptions = 0;
-    let pending_acks = 0;
-    let pending_tids = 0;
-    let wsize = 0;
-
-    _.forEach (this._sessions, (s) => {
-      sessions++;
-
-      _.forEach (s.subscrs, (subscr) => {
-        subscriptions++;
-        const qc_st = subscr.qc.status();
-        pending_acks += _.size (qc_st.pending_acks);
-        pending_tids += _.size (qc_st.pending_tids);
-        wsize += qc_st.wsize;
-      });
+    this._create_metric_stomp ('sessions', 'active STOMP sessions', function () {this.set (_.size (self._sessions))} );
+    this._create_metric_stomp ('subscriptions', 'active STOMP subscriptions', function () {
+      let count = 0;
+      _.forEach (self._sessions, s => count += _.size (s.subscrs));
+      this.set (count);
     });
-
-    this._stomp_metrics.stomp_sessions.set (sessions);
-    this._stomp_metrics.stomp_subscriptions.set (subscriptions);
-    this._stomp_metrics.stomp_pending_acks.set (pending_acks);
-    this._stomp_metrics.stomp_pending_tids.set (pending_tids);
-    this._stomp_metrics.stomp_wsize.set (wsize);
+    this._create_metric_stomp ('pending_acks', 'in-flight messages, pending ack', function () {
+      let count = 0;
+      _.forEach (self._sessions, s => _.forEach (s.subscrs, subscr => {
+        const qc_st = subscr.qc.status();
+        count += _.size (qc_st.pending_acks);
+      }));
+      this.set (count);
+    });
+    this._create_metric_stomp ('pending_tids', 'idle consumers', function () {
+      let count = 0;
+      _.forEach (self._sessions, s => _.forEach (s.subscrs, subscr => {
+        const qc_st = subscr.qc.status();
+        count += _.size (qc_st.pending_tids);
+      }));
+      this.set (count);
+    });
+    this._create_metric_stomp ('wsize', 'total window size', function () {
+      let count = 0;
+      _.forEach (self._sessions, s => _.forEach (s.subscrs, subscr => {
+        const qc_st = subscr.qc.status();
+        count += qc_st.wsize;
+      }));
+      this.set (count);
+    });
   }
 
 
@@ -291,7 +282,6 @@ class STOMP {
     logger.info ('STOMP server ending');
 
     clearInterval (this._ka_timer);
-    clearInterval (this._rgm_timer);
 
     this._server.close (() => {
       // end all sessions
@@ -656,13 +646,13 @@ class STOMP {
       m_frm.header ('subscription', frm.id);
       m_frm.header ('message-id', frm.id + '@' + (item._id ? item._id.toString() : 'none'));
       m_frm.header ('destination', q.name());
-      m_frm.header ('x-mature', item.mature.toString ());
+      m_frm.header ('x-mature', item.mature.toISOString ());
       m_frm.header ('x-tries', item.tries + '');
       m_frm.header ('content-type', item.hdrs['content-type'] ? item.hdrs['content-type'] : 'application/json ; charset=utf8');
 
       // pass x-ks-hdr-* extra headers
       _.each (item.hdrs, (v, k) => {
-        if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v);
+        if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v + '');
       });
 
       var body = item.payload;
@@ -746,6 +736,7 @@ class STOMP {
       var x_delta_t = parseInt (frm.header ('x-delta-t')) || 5000;
       next_t = new Date().getTime () + x_delta_t;
     }
+    // else TODO port retry.cN logic from amqp
 
     var ack = subscr.qc.nack (msg_id, next_t, err => {
       if (err) return this._error_in_session (sess, frm, util.format ('error in ack of %s', msg_id) + ': ' + err);
