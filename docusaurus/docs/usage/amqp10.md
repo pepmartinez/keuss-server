@@ -7,28 +7,32 @@ sidebar_label: AMQP 1.0 API
 ## AMQP 1.0 stack
 
 The included AMQP 1.0 stack supports version 1.0 only, and is implemented using [rhea](https://www.npmjs.com/package/rhea):
-* A AMQP server is created,
+
+* An AMQP server is created,
 * where AMQP clients can connect and:
   * open receivers to pop elements from a queue
   * open senders to push elements to a queue
 * In all cases (receviers and senders) addresses refer to queues
   
 ### Features
-* *at-least-once consume*: by default client receivers (linked to a server sender) will work on at-least-once mode: 
-  elements are reserved from queues, and are later committed (in case of client accept) or rolled back (in case of client reject) 
+
+* *at-least-once consume*: by default client receivers (linked to a server sender) will work on at-least-once mode:
+  elements are reserved from queues, and are later committed (in case of client accept) or rolled back (in case of client reject)
 * *at-most-once consume*: in case the client receiver uses `snd-settle-mode = 1`, elements will be directly popped from queues
-* *consume window*: client receivers in at-least-once mode will only get up to a maximum number of unsettled elements; that is, 
+* *consume window*: client receivers in at-least-once mode will only get up to a maximum number of unsettled elements; that is,
   the receiver will stop receiving new elements after reaching a certain number of elements pending accept or reject  
 * *delay on retry*: Elements rejected (in at-least-once mode) are rolled back to the queue with a configurable delay with quadratic increase
 * *deadletter*: Elements rejected (in at-least-once mode) too many times can optionally be moved to a deadletter queue
 
 ### Limitations
+
 * `release` is unsupported: you need to use either `accept` or `reject`
 * There is no authentication/authorization yet (although `rhea` provides it, so it will be added soon)
 
 ### Conventions
 
 #### Queue naming
+
 Queues (that is, addresses) will need to follow one of those forms:
 
 * `/amq/queue/{namespace}/{queue}`
@@ -38,10 +42,11 @@ Queues (that is, addresses) will need to follow one of those forms:
 Where `{namespace}` and `{queue}` are the namespace and queue names respectively
 
 #### Headers mapping
+
 There is a specific mapping between `keuss` headers and amqp message parts:
 
-| AMQP msg field                     | Keuss element                    |
-|------------------------------------|----------------------------------|
+| AMQP msg field                     | Keuss element                      |
+|------------------------------------|------------------------------------|
 | `delivery-count`                   | `tries`                            |
 | `application_properties.x-next-t`  | `mature`                           |
 | `application_properties.x-delta-t` | `delay`                            |
@@ -51,12 +56,12 @@ There is a specific mapping between `keuss` headers and amqp message parts:
 | `priority`                         | `hdrs.x-amqp-priority`             |
 | `ttl`                              | `hdrs.x-amqp-ttl`                  |
 | `absolute-expiry-time`             | `hdrs.x-amqp-absolute-expiry-time` |
-| `creation-time `                   | `hdrs.x-amqp-creation-time`        |
+| `creation-time`                    | `hdrs.x-amqp-creation-time`        |
 | `group-sequence`                   | `hdrs.x-amqp-group-sequence`       |
 | `message-id`                       | `hdrs.x-amqp-message-id`           |
-| `user-id `                         | `hdrs.x-amqp-user-id`              |
+| `user-id`                          | `hdrs.x-amqp-user-id`              |
 | `to`                               | `hdrs.x-amqp-to`                   |
-| `reply-to `                        | `hdrs.x-amqp-reply-to`             |
+| `reply-to`                         | `hdrs.x-amqp-reply-to`             |
 | `correlation-id`                   | `hdrs.x-amqp-correlation-id`       |
 | `group-id`                         | `hdrs.x-amqp-group-id`             |
 | `reply-to-group-id`                | `hdrs.x-amqp-reply-to-group-id`    |
@@ -65,11 +70,12 @@ There is a specific mapping between `keuss` headers and amqp message parts:
 | `application-properties.*`         | `hdrs.x-amqp-ap-*`                 |
 | `footer.*`                         | `hdrs.x-amqp-ft-*`                 |
 
-Also, any other header in a keuss element that does not match any of the above but starts with `x-` will be passed to amqp message 
+Also, any other header in a keuss element that does not match any of the above but starts with `x-` will be passed to amqp message
 inside `application-properties`
 
 ### Configuration
-This is the configuration block for AMQP 1.0, along with its defult values:
+
+This is the configuration block for AMQP 1.0, along with its default values:
 
 ```js
   amqp: {
@@ -85,8 +91,10 @@ This is the configuration block for AMQP 1.0, along with its defult values:
     }
   }
 ```
+
 ### Metrics
-These are the prometheus metrics provided for AMQP:
+
+These are the [Prometheus](https://prometheus.io/) metrics provided for AMQP:
 
 * `amqp_connections`: gauge, number of active amqp connections
 * `amqp_senders`: gauge, number of active amqp senders
@@ -96,9 +104,11 @@ These are the prometheus metrics provided for AMQP:
 * `amqp_wsize`: gauge, total sum across senders of each wsize
 
 ### Examples
+
 Here are a few simple clients built using `rhea`
 
 #### Push to queue
+
 ```js
 const container = require ('rhea').create_container ();
 
@@ -144,6 +154,7 @@ container
 ```
 
 #### Pop from queue
+
 ```js
 const container = require('rhea').create_container ();
 
@@ -184,4 +195,3 @@ container
 });
 
 ```
-
