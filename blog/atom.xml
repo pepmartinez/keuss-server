@@ -2,11 +2,26 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://pepmartinez.github.io/keuss-server/blog</id>
     <title>Keuss Server Job Queues Blog</title>
-    <updated>2020-08-04T00:00:00.000Z</updated>
+    <updated>2022-05-19T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://pepmartinez.github.io/keuss-server/blog"/>
     <subtitle>Keuss Server Job Queues Blog</subtitle>
     <icon>https://pepmartinez.github.io/keuss-server/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[AMQP 1.0 Support]]></title>
+        <id>amqp</id>
+        <link href="https://pepmartinez.github.io/keuss-server/blog/amqp"/>
+        <updated>2022-05-19T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[We have added support for AMQP 1.0 into Keuss Server, using Rhea.]]></summary>
+        <content type="html"><![CDATA[<p>We have added support for AMQP 1.0 into Keuss Server, using <a href="https://www.npmjs.com/package/rhea" target="_blank" rel="noopener noreferrer">Rhea</a>.
+You can find the details in the <a href="/keuss-server/blog/docs/usage/amqp10">usage documentation</a> or play with the examples provided in the <code>/test</code> folder.</p>]]></content>
+        <author>
+            <name>Pep Martinez</name>
+            <uri>https://github.com/pepmartinez</uri>
+        </author>
+        <category label="keuss-server" term="keuss-server"/>
+        <category label="amqp" term="amqp"/>
+    </entry>
     <entry>
         <title type="html"><![CDATA[New website!]]></title>
         <id>welcome</id>
