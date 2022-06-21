@@ -91,6 +91,10 @@ var config = {
         signaller: 'mongo'
       }
     },
+  },
+  exchanges: {
+    alba: {},
+    beta: {}
   }
 };
 

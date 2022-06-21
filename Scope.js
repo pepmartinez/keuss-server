@@ -1,9 +1,11 @@
-var async = require ('async');
-var _ =     require ('lodash');
-var util =  require ('util');
-var Log =   require ('winston-log-space');
+const async = require ('async');
+const _ =     require ('lodash');
+const util =  require ('util');
+const Log =   require ('winston-log-space');
 
-var logger = Log.logger ('scope');
+const Exchange = require ('./Exchange');
+
+const logger = Log.logger ('scope');
 
 class Scope {
   //////////////////////////////
@@ -11,6 +13,7 @@ class Scope {
     this._stats_providers = {};
     this._signal_providers = {};
     this._q_namespaces = {};
+    this._exchanges = {};
   }
 
 
@@ -112,6 +115,30 @@ class Scope {
   }
 
 
+  //////////////////////////////
+  _init_exchanges (config, cb) {
+    var tasks = [];
+
+    _.forEach (config.exchanges, (exchange, exchange_name) => {
+      if (exchange.disable) {
+        logger.info ('exchange [%s] disabled, not loading', exchange_name);
+        return;
+      }
+
+      tasks.push (cb => {
+        logger.info ('creating exchange [%s]', exchange_name);
+        const ex = new Exchange (this, exchange_name, exchange);
+        this._exchanges[exchange_name] = ex;
+        ex.init (cb);
+      });
+    });
+
+    tasks.push (cb => this.refresh (cb));
+
+    async.series (tasks, cb);
+  }
+
+
   //////////////////////////////////////////////////
   _create_metric_gauge_q_global (id, help) {
     let the_metric = this._context.promster.register.getSingleMetric('q_global_' + id);
@@ -163,7 +190,6 @@ class Scope {
 
   //////////////////////////////////////////////////
   _refresh_q_global_metrics_for_queue (q, cb) {
-
     async.parallel ({
       size:          cb => q.size (cb),
       totalSize:     cb => q.totalSize (cb),
@@ -217,6 +243,7 @@ class Scope {
       cb => this._init_stats_providers  (config, cb),
       cb => this._init_signal_providers (config, cb),
       cb => this._init_backends         (config, cb),
+      cb => this._init_exchanges        (config, cb),
     ], cb);
   }
 
@@ -235,24 +262,53 @@ class Scope {
 
   //////////////////////////////
   end (cb) {
+    clearInterval (this._rqgm_timer);
+
+    async.series ([
+      cb => this._end_exchanges (cb),
+      cb => this._end_namespaces (cb),
+    ], cb);
+  }
+
+
+  //////////////////////////////
+  _end_namespaces (cb) {
     var tasks = [];
 
     _.each (this._q_namespaces, (v, k) => {
-      tasks.push ((cb) => {
-        logger.info (`closing backend ${k}`)
+      tasks.push (cb => {
+        logger.info (`closing backend ${k}`);
+
         v.q_repo.forEach ((q, qname) => {
           logger.info (`cancelling queue ${qname}`);
           // TODO drain queues
           q.cancel();
         });
+
         v.factory.close (cb);
       });
     });
 
-    clearInterval (this._rqgm_timer);
-
-    async.parallel (tasks, (err) => {
+    async.parallel (tasks, err => {
       logger.info ('all factories closed');
+      cb (err);
+    });
+  }
+
+
+  //////////////////////////////
+  _end_exchanges (cb) {
+    var tasks = [];
+
+    _.each (this._exchanges, (v, k) => {
+      tasks.push (cb => {
+        logger.info (`closing exchange ${k}`);
+        v.end (cb);
+      });
+    });
+
+    async.parallel (tasks, err => {
+      logger.info ('all exchanges closed');
       cb (err);
     });
   }

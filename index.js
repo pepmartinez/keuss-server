@@ -29,7 +29,8 @@ var defaults = {
       }
     }
   },
-  namespaces: {}
+  namespaces: {},
+  exchanges: {}
 };
 
 
