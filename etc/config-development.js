@@ -93,8 +93,46 @@ var config = {
     },
   },
   exchanges: {
-    alba: {},
-    beta: {}
+    alba: {
+      src: {
+        ns: 'N',
+        queue: 'one_source',
+      },
+      dst: [
+        {
+          ns: 'ns1',
+          queue: 'one_dest',
+          filter: null,
+          exclusive: false
+        },
+        {
+          ns: 'ns1',
+          queue: 'other_dest',
+          filter: null,
+          exclusive: false
+        }
+      ]
+    },
+    beta: {
+      src: {
+        ns: 'N',
+        queue: 'other_source',
+      },
+      dst: [
+        {
+          ns: 'ns1',
+          queue: 'one_dest',
+          filter: null,
+          exclusive: false
+        },
+        {
+          ns: 'ns1',
+          queue: 'other_dest',
+          filter: null,
+          exclusive: false
+        }
+      ]
+    },
   }
 };
 

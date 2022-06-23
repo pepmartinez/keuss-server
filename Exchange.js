@@ -1,125 +1,182 @@
-const _ =   require ('lodash');
-const Log = require ('winston-log-space');
+const _ =     require ('lodash');
+const async = require ('async');
+const uuid =  require ('uuid');
+const Log =   require ('winston-log-space');
+
+
+class Destination {
+  constructor (name, q, filter) {
+    this._name = name || q.name ();
+    this._q = q;
+    this._filter = filter;
+  }
+
+  /*
+    cb (err, res)
+      err --> error on push or process
+      res:
+        processed: boolean, whether teh element was processed or ignored
+        stop: boolean, whether to stop processing on further Destinations 
+  */
+  apply (item, cb) {
+    this._q.push (item.payload, {hdrs: item.hdrs}, cb);
+  }
+
+  name () {return this._name;}
+}
 
 
 class QConsumer {
   ///////////////////////////////////////////
-  constructor (q, opts, context, cb) {
-    this._q = q;
+  constructor (exchange, src, dests, opts, context) {
+    this._src = src;
+    this._dests = dests;
     this._opts = opts || {};
-    this._cb = cb;
     this._context = context;
     this._metrics = context.metrics;
+    this._exchange = exchange;
+    this._logger = exchange._logger;
 
     this._pop_opts = {
       reserve: this._opts.reserve || false
     };
 
-    this._parallel = opts.parallel || 1;
-    this._wsize =    opts.wsize || 1000;
+    this._parallel = this._opts.parallel || 1;
+    this._wsize =    this._opts.wsize || 1000;
 
     this._cid = uuid.v4();
     this._pending_acks = {};
     this._pending_tids = {};
     this._waiting_for_window = [];
 
-    logger.verbose ('QConsumer %s: created', this._cid);
+    this._logger.verbose ('QConsumer %s: created', this._cid);
   }
+
 
   ///////////////////////////////////////////
   _window_used () {
     return _.size (this._pending_acks) + _.size (this._pending_tids);
   }
 
+
   ///////////////////////////////////////////
   _window_release () {
-    logger.debug ('QConsumer %s: trying window releases, (max %d, used %d), %d in wait, releasing a waiting consumer' , this._cid, this._wsize, this._window_used (), this._waiting_for_window.length);
+    this._logger.debug ('QConsumer %s: trying window releases, (max %d, used %d), %d in wait, releasing a waiting consumer' , this._cid, this._wsize, this._window_used (), this._waiting_for_window.length);
 
     if (this._waiting_for_window.length == 0) return;
 
-    logger.debug ('QConsumer %s: window release, (max %d, used %d), releasing a waiting consumer' , this._cid, this._wsize, this._window_used ());
-    var elem = this._waiting_for_window.shift();
+    this._logger.debug ('QConsumer %s: window release, (max %d, used %d), releasing a waiting consumer' , this._cid, this._wsize, this._window_used ());
+    const elem = this._waiting_for_window.shift();
     setImmediate (elem);
   }
+
 
   ///////////////////////////////////////////
   _a_single_iteration (pcid) {
     if (this._window_used () >= this._wsize) {
-      logger.verbose ('QConsumer %s: window full (max %d, used %d), waiting for release' , pcid, this._wsize, this._window_used ());
+      this._logger.verbose ('QConsumer %s: window full (max %d, used %d), waiting for release' , pcid, this._wsize, this._window_used ());
       this._waiting_for_window.push (() => this._a_single_iteration (pcid));
       return;
     }
 
-    var metric = (this._pop_opts.reserve ? this._metrics.keuss_q_reserve : this._metrics.keuss_q_pop);
+    const metric = (this._pop_opts.reserve ? this._metrics.keuss_q_reserve : this._metrics.keuss_q_pop);
 
-    var tid = this._q.pop (pcid, this._pop_opts, (err, res) => {
+    const tid = this._src.pop (pcid, this._pop_opts, (err, item) => {
       delete this._pending_tids[tid];
-
-      // TODO manage error?
 
       if (err == 'cancel') {
         // consumer cancelled, end loop
-        metric.labels ('stomp', this._q.ns(), this._q.name(), 'cancel').inc ();
-        logger.debug ('QConsumer %s: cancelled while pop from queue %s, tid is %s', pcid, this._q.name(), tid);
+        metric.labels ('exchange', this._src.ns(), this._src.name(), 'cancel').inc ();
+        this._logger.debug ('QConsumer %s: cancelled while pop from queue %s, tid is %s', pcid, this._src.name(), tid);
         return;
       }
-
-      logger.debug ('QConsumer %s: return from pop from queue %s, tid is %s', pcid, this._q.name(), tid);
-
-      if (this._pop_opts.reserve && res) {
-        this._pending_acks[res._id] = {
-          t: new Date(),
-          msg: res
-        };
-
-        logger.debug ('QConsumer %s: new pending ack [%s]', pcid, res._id);
+      else if (err) {
+        // got an error
+        this._logger.error ('QConsumer %s: error while popping from queue %s: %o. Pausing for 5 secs...', pcid, this._src.name(), err);
+        setTimeout (() => this._a_single_iteration (pcid), 5000);
       }
       else {
-        logger.debug ('QConsumer %s: popped: window is -> (max %d, used %d)', pcid, this._wsize, this._window_used ());
-        this._window_release ();
+        this._logger.debug ('QConsumer %s: return from pop from queue %s, tid is %s', pcid, this._src.name(), tid);
+
+        if (this._pop_opts.reserve && item) {
+          this._pending_acks[item._id] = { t: new Date(), msg: item };
+          this._logger.debug ('QConsumer %s: new pending ack [%s]', pcid, item._id);
+        }
+        else {
+          this._logger.debug ('QConsumer %s: popped: window is -> (max %d, used %d)', pcid, this._wsize, this._window_used ());
+          this._window_release ();
+        }
+
+        this._fanout (item, (err, res) => {
+          if (err) {
+            this._logger.error ('error in fanout [%s]: %j', item._id, err);
+            const next_t = new Date().getTime() + 5000;
+            this.nack (item._id, next_t, () => this._a_single_iteration (pcid));
+          }
+          else {
+            this.ack (item._id, () => this._a_single_iteration (pcid));
+          }
+        });
       }
 
-      this._cb (err, res);
-      setImmediate (() => this._a_single_iteration (pcid));
-      metric.labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : 'ok')).inc ();
+      metric.labels ('exchange', this._src.ns(), this._src.name(), (err ? 'ko' : 'ok')).inc ();
     });
 
     this._pending_tids[tid] = new Date();
-    logger.debug ('QConsumer %s: pop: window is -> (max %d, used %d)', pcid, this._wsize, this._window_used ());
-    logger.verbose ('QConsumer %s: getting from queue %s, tid is %s', pcid, this._q.name(), tid);
+    this._logger.debug ('QConsumer %s: pop: window is -> (max %d, used %d)', pcid, this._wsize, this._window_used ());
+    this._logger.verbose ('QConsumer %s: getting from queue %s, tid is %s', pcid, this._src.name(), tid);
   }
+
+
+  ///////////////////////////////////////////
+  _fanout (item, cb) {
+    const tasks = [];
+
+    _.each (this._dests, dest => {
+      tasks.push (cb => {
+        this._logger.verbose ('fanout item [%s] to %s', item._id, dest.name());
+        dest.apply (item, cb);
+      });
+    });
+
+    async.series (tasks, cb);
+  }
+
 
   ///////////////////////////////////////////
   start () {
-    for (var i = 0; i < this._parallel; i++) {
+    this._metrics = this._context.metrics;
+
+    for (let i = 0; i < this._parallel; i++) {
       this._a_single_iteration (this._cid + '--' + i);
     }
 
-    logger.verbose ('QConsumer %s: started', this._cid);
+    this._logger.verbose ('QConsumer %s: started', this._cid);
   }
+
 
   ///////////////////////////////////////////
   stop () {
     // rollback pending acks
-    var next_t = new Date().getTime ();
+    const next_t = new Date().getTime ();
     _.forEach (this._pending_acks, (val, id) => {
-      this._q.ko (val.msg, next_t, (err, res) => {
+      this._src.ko (val.msg, next_t, (err, res) => {
         if (err) {
-          this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ko').inc ();
-          logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', this._cid, id, '' + err);
+          this._metrics.keuss_q_rollback .labels ('exchange', this._src.ns(), this._src.name(), 'ko').inc ();
+          this._logger.error ('QConsumer %s: error while rolling back pending ack [%s]: %s', this._cid, id, '' + err);
         }
         else {
           if (res == 'deadletter') {
-            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'deadletter').inc ();
-            logger.verbose ('QConsumer %s: rolled back pending ack [%s] resulted in move-to-deadletter. No more retries will happen', this._cid, id);
+            this._metrics.keuss_q_rollback .labels ('exchange', this._src.ns(), this._src.name(), 'deadletter').inc ();
+            this._logger.verbose ('QConsumer %s: rolled back pending ack [%s] resulted in move-to-deadletter. No more retries will happen', this._cid, id);
           }
           else if (!res) {
-            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'notfound').inc ();
-            logger.error ('QConsumer %s: while rolling back pending ack [%s]: no such element', this._cid, id, '' + err);
+            this._metrics.keuss_q_rollback .labels ('exchange', this._src.ns(), this._src.name(), 'notfound').inc ();
+            this._logger.error ('QConsumer %s: while rolling back pending ack [%s]: no such element', this._cid, id, '' + err);
           }
           else {
-            this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), 'ok').inc ();
-            logger.verbose ('QConsumer %s: rolled back pending ack [%s]', this._cid, id);
+            this._metrics.keuss_q_rollback .labels ('exchange', this._src.ns(), this._src.name(), 'ok').inc ();
+            this._logger.verbose ('QConsumer %s: rolled back pending ack [%s]', this._cid, id);
           }
         }
       });
@@ -127,50 +184,55 @@ class QConsumer {
 
     // cancel pending tids
     _.forEach (this._pending_tids, (val, tid) => {
-      this._q.cancel (tid);
-      logger.verbose ('QConsumer %s: cancelled pending TID [%s]', this._cid, tid);
+      this._src.cancel (tid);
+      this._logger.verbose ('QConsumer %s: cancelled pending TID [%s]', this._cid, tid);
     });
 
-    logger.verbose ('QConsumer %s: stopped', this._cid);
+    this._logger.verbose ('QConsumer %s: stopped', this._cid);
   }
+
 
   ///////////////////////////////////////////
   ack (id, cb) {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
-    this._q.ok (this._pending_acks[id].msg, err => {
+    this._src.ok (this._pending_acks[id].msg, err => {
       delete this._pending_acks[id];
-      logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
+      this._logger.debug ('QConsumer %s: ack: window is -> (max %d, used %d)', this._cid, this._wsize, this._window_used ());
       this._window_release ();
       if (cb) cb (err);
-      this._metrics.keuss_q_commit .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : 'ok')).inc ();
+      this._metrics.keuss_q_commit .labels ('exchange', this._src.ns(), this._src.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
+
 
   ///////////////////////////////////////////
   nack (id, next_t, cb) {
     if (!this._pending_acks[id]) return cb ('nonexistent pending message id ' + id);
 
-    logger.debug ('QConsumer %s: nacking id [%s], next_t is %s', this._cid, id, new Date (next_t));
+    this._logger.debug ('QConsumer %s: nacking id [%s], next_t is %s', this._cid, id, new Date (next_t));
 
-    this._q.ko (this._pending_acks[id].msg, next_t, (err, res) => {
+    this._src.ko (this._pending_acks[id].msg, next_t, (err, res) => {
       delete this._pending_acks[id];
-      logger.debug ('QConsumer %s: nack: window is -> (max %d, used %d, rollback-result %o)', 
-                    this._cid, 
-                    this._wsize, 
-                    this._window_used (),
-                    res);
+      this._logger.debug (
+        'QConsumer %s: nack: window is -> (max %d, used %d, rollback-result %o)', 
+        this._cid, 
+        this._wsize, 
+        this._window_used (),
+        res
+      );
 
       this._window_release ();
       if (cb) cb (err);
-      this._metrics.keuss_q_rollback .labels ('stomp', this._q.ns(), this._q.name(), (err ? 'ko' : ((res === false) ? 'deadletter' : 'ok'))).inc ();
+      this._metrics.keuss_q_rollback .labels ('exchange', this._src.ns(), this._src.name(), (err ? 'ko' : ((res === false) ? 'deadletter' : 'ok'))).inc ();
     });
   }
+
 
   ///////////////////////////////////////////
   status () {
     return {
-      q:            this._q.name(),
+      q:            this._src.name(),
       opts:         this._opts,
       cid:          this._cid,
       pending_acks: _.mapValues (this._pending_acks, o => {return {t: o.t, id: o.msg._id}}),
@@ -181,17 +243,19 @@ class QConsumer {
 }
 
 
-
-
 class Exchange {
   //////////////////////////////////////////////////////////
-  constructor (scope, name, config) {
+  constructor (scope, name, config, context) {
     this._scope = scope;
+    this._context = context;
     this._name = name;
     this._config = config;
 
-    this._logger = Log.logger (`scope:${name}`);
-    this._logger.verbose ('created');
+    this._logger = Log.logger (`exchange:${name}`);
+    this._logger.verbose ('creating with config %j', config);
+    this._create_qconsumer_from_config ();
+
+    this._logger.verbose ('created with config %j', config);
   }
 
 
@@ -203,10 +267,49 @@ class Exchange {
 
 
   //////////////////////////////////////////////////////////
+  start (cb) {
+    this._qconsumer.start();
+    this._logger.verbose ('start done');
+    cb ();
+  }
+
+
+  //////////////////////////////////////////////////////////
   end (cb) {
+    this._qconsumer.stop();
     this._logger.verbose ('end done');
     cb ();
   }
+
+  //////////////////////////////////////////////////////////  
+  /*
+  config is
+  src: 
+    ns: string
+    queue: string
+  dst:
+    - ns: string
+      queue: string
+      name:? string
+      filter:
+      exclusive: boolean
+  */
+  _create_qconsumer_from_config () {
+    const src_ns = this._scope.namespace (this._config.src.ns);
+    if (!src_ns) throw ReferenceError (`namespace ${this._config.src.ns} not defined`);
+    const src_q = this._scope.queue_from_ns (src_ns, this._config.src.queue);
+
+    const dsts = [];
+    _.each (this._config.dst, dst => {
+      const dst_ns = this._scope.namespace(dst.ns);
+      if (!dst_ns) throw ReferenceError (`namespace ${dst.ns} not defined`);
+      const dst_q = this._scope.queue_from_ns (dst_ns, dst.queue);
+
+      dsts.push (new Destination (dst.name, dst_q));
+    });
+
+    this._qconsumer = new QConsumer (this, src_q, dsts, {}, this._context);
+  } 
 };
 
 module.exports = Exchange;

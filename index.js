@@ -97,8 +97,8 @@ cconf
           context.promster = context.app.locals.Prometheus;
           cb ();
         }),
-        cb => context.scope.start (cb),
         cb => _create_metrics (context, cb),
+        cb => context.scope.start (cb),
         cb => {
           // init stomp server
           context.stomp_server = new Stomp (config, context);

@@ -30,6 +30,16 @@ class Scope {
 
 
   //////////////////////////////
+  queue_from_ns (ns, qname, opts) {
+    if (!ns.q_repo.has(qname)) {
+      ns.q_repo.set(qname, ns.factory.queue(qname, opts || {}));
+    }
+
+    return ns.q_repo.get(qname);
+  }
+
+
+  //////////////////////////////
   _init_stats_providers (config, cb) {
     _.forEach (config.stats, (v, k) => {
       var modul = require('keuss/stats/' + v.factory);
@@ -116,7 +126,7 @@ class Scope {
 
 
   //////////////////////////////
-  _init_exchanges (config, cb) {
+  _init_exchanges (config, context, cb) {
     var tasks = [];
 
     _.forEach (config.exchanges, (exchange, exchange_name) => {
@@ -127,7 +137,7 @@ class Scope {
 
       tasks.push (cb => {
         logger.info ('creating exchange [%s]', exchange_name);
-        const ex = new Exchange (this, exchange_name, exchange);
+        const ex = new Exchange (this, exchange_name, exchange, context);
         this._exchanges[exchange_name] = ex;
         ex.init (cb);
       });
@@ -243,8 +253,26 @@ class Scope {
       cb => this._init_stats_providers  (config, cb),
       cb => this._init_signal_providers (config, cb),
       cb => this._init_backends         (config, cb),
-      cb => this._init_exchanges        (config, cb),
+      cb => this._init_exchanges        (config, context, cb),
     ], cb);
+  }
+
+
+  //////////////////////////////
+  _start_exchanges (cb) {
+    var tasks = [];
+
+    _.each (this._exchanges, (v, k) => {
+      tasks.push (cb => {
+        logger.info (`starting exchange ${k}`);
+        v.start (cb);
+      });
+    });
+
+    async.parallel (tasks, err => {
+      logger.info ('all exchanges started');
+      cb (err);
+    });
   }
 
 
@@ -255,7 +283,8 @@ class Scope {
         this._create_metrics_g_global ();
         this._rqgm_timer = setInterval (() => this._refresh_q_global_metrics (), this._config.refresh_metrics_interval || 2000);
         cb ();
-      }
+      },
+      cb => this._start_exchanges (cb),
     ], cb);
   }
 
