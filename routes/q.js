@@ -368,7 +368,7 @@ function get_router(config, context) {
 
 
   router.param ('namespace', (req, res, next, namespace) => {
-    var __namespace = scope.namespace(namespace);
+    const __namespace = scope.namespace(namespace);
     if (!__namespace) {
       res.status(404).send('no such queue namespace [' + namespace + ']');
     } else {
@@ -378,13 +378,8 @@ function get_router(config, context) {
   });
 
   router.param ('q', (req, res, next, q) => {
-    var namespace = req.__namespace;
-
-    if (!namespace.q_repo.has(q)) {
-      namespace.q_repo.set(q, namespace.factory.queue(q, {}));
-    }
-
-    req.__q = namespace.q_repo.get(q);
+    const ns = req.__namespace;
+    req.__q = scope.queue_from_ns (ns, q);
     next();
   });
 

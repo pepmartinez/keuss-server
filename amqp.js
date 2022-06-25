@@ -768,13 +768,8 @@ class AMQP {
     const ns = this._scope.namespace (match.groups.ns);
     if (!ns) return `unknown namespace ${ns} on address ${destination}`;
 
-    var qname = match.groups.q;
-
-    if (!ns.q_repo.has(qname)) {
-      ns.q_repo.set (qname, ns.factory.queue (qname, {}));
-    }
-
-    const q = ns.q_repo.get(qname);
+    const qname = match.groups.q;
+    const q = this._scope.queue_from_ns (ns, qname);
     return q;
   }
 }

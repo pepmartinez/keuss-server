@@ -332,12 +332,13 @@ _.forEach([
         cb => setTimeout (cb, 1000),
         cb => commit_msg(namespace, 'q1', id, cb),
       ], (err, allres) => {
+        if (err) return done (err);
         allres[1].should.eql(msg);
 
         var t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 1000);
 
-        done(err);
+        done();
       });
     });
 

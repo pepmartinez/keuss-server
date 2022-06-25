@@ -499,13 +499,8 @@ class STOMP {
       return `unknown namespace ${ns} on destination queue ${destination}`;
     }
 
-    var qname = arr[3];
-
-    if (!ns.q_repo.has(qname)) {
-      ns.q_repo.set(qname, ns.factory.queue(qname, {}));
-    }
-
-    var q = ns.q_repo.get(qname);
+    const qname = arr[3];
+    const q = this._scope.queue_from_ns (ns, qname);
     return q;
   }
 
