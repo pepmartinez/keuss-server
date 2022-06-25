@@ -137,7 +137,7 @@ class Scope {
 
       tasks.push (cb => {
         logger.info ('creating exchange [%s]', exchange_name);
-        const ex = new Exchange (this, exchange_name, exchange, context);
+        const ex = new Exchange (exchange_name, exchange, context);
         this._exchanges[exchange_name] = ex;
         ex.init (cb);
       });

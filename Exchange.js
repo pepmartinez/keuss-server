@@ -33,7 +33,6 @@ class QConsumer {
     this._dests = dests;
     this._opts = opts || {};
     this._context = context;
-    this._metrics = context.metrics;
     this._exchange = exchange;
     this._logger = exchange._logger;
 
@@ -144,9 +143,13 @@ class QConsumer {
 
 
   ///////////////////////////////////////////
-  start () {
+  init () {
     this._metrics = this._context.metrics;
+  }
 
+
+  ///////////////////////////////////////////
+  start () {
     for (let i = 0; i < this._parallel; i++) {
       this._a_single_iteration (this._cid + '--' + i);
     }
@@ -245,8 +248,8 @@ class QConsumer {
 
 class Exchange {
   //////////////////////////////////////////////////////////
-  constructor (scope, name, config, context) {
-    this._scope = scope;
+  constructor (name, config, context) {
+    this._scope = context.scope;
     this._context = context;
     this._name = name;
     this._config = config;
@@ -261,6 +264,7 @@ class Exchange {
 
   //////////////////////////////////////////////////////////
   init (cb) {
+    this._qconsumer.init();
     this._logger.verbose ('init done');
     cb ();
   }
