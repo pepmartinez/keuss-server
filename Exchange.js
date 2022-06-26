@@ -1,27 +1,62 @@
-const _ =     require ('lodash');
-const async = require ('async');
-const uuid =  require ('uuid');
-const Log =   require ('winston-log-space');
+const _ =        require ('lodash');
+const async =    require ('async');
+const uuid =     require ('uuid');
+const Log =      require ('winston-log-space');
+const evaluate = require ('static-eval');
+const parse =    require ('esprima').parse;
 
 
 class Destination {
-  constructor (name, q, filter) {
+  ///////////////////////////////////////////
+  constructor (name, q, selector, logger) {
     this._name = name || q.name ();
     this._q = q;
-    this._filter = filter;
+    this._selector_str = selector;
+    this._logger = logger;
+
+    if (selector && _.isString (selector)) {
+      this._logger.verbose ('Destination [%s]: parsing selector [%s]', this._name, selector);
+
+      try {
+        this._selector_ast = parse (selector).body[0].expression;
+      }
+      catch (e) {
+        throw new Error (`parse error in line ${e.lineNumber}, pos ${e.index} : ${e.description}`);
+      }
+    }
+
+    this._logger.verbose ('Destination [%s]: created', this._name);
   }
 
-  /*
-    cb (err, res)
-      err --> error on push or process
-      res:
-        processed: boolean, whether teh element was processed or ignored
-        stop: boolean, whether to stop processing on further Destinations 
-  */
+
+  ///////////////////////////////////////////
   apply (item, cb) {
-    this._q.push (item.payload, {hdrs: item.hdrs}, cb);
+    let really_apply = (!this._selector_ast);
+
+    if (this._selector_ast) {
+      try {
+        this._logger.verbose ('eval on %j', item)
+        really_apply = evaluate (this._selector_ast, {msg: item});
+        this._logger.verbose ('eval is %j', really_apply)
+      }
+      catch (e) {
+        this._logger.error (e);
+        really_apply = false;
+      }
+    }
+
+    if (really_apply) {
+      this._logger.verbose ('Destination [%s]: really apply', this._name);
+      this._q.push (item.payload, {hdrs: item.hdrs}, cb);
+    }
+    else {
+      this._logger.verbose ('Destination [%s]: ignore apply', this._name);
+      setImmediate (cb);
+    }
   }
 
+
+  ///////////////////////////////////////////
   name () {return this._name;}
 }
 
@@ -294,9 +329,8 @@ class Exchange {
   dst:
     - ns: string
       queue: string
-      name:? string
-      filter:
-      exclusive: boolean
+      name?: string
+      selector?: string
   */
   _create_qconsumer_from_config () {
     const src_ns = this._scope.namespace (this._config.src.ns);
@@ -309,7 +343,13 @@ class Exchange {
       if (!dst_ns) throw ReferenceError (`namespace ${dst.ns} not defined`);
       const dst_q = this._scope.queue_from_ns (dst_ns, dst.queue);
 
-      dsts.push (new Destination (dst.name, dst_q));
+      try {
+        const d = new Destination (dst.name, dst_q, dst.selector, this._logger);
+        dsts.push (d);
+      }
+      catch (e) {
+        this._logger.error ('error in Destination %j: %s. Destination IGNORED', dst, e.message);
+      }
     });
 
     this._qconsumer = new QConsumer (this, src_q, dsts, {}, this._context);

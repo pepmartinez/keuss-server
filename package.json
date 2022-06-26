@@ -44,7 +44,9 @@
     "type-is": "~1.6.18",
     "uuid": "~8.3.2",
     "winston-log-space": "~1.0.7",
-    "rhea": "3.0.0"
+    "rhea": "3.0.0",
+    "static-eval": "~2.1.0",
+    "esprima": "~4.0.1"
   },
   "devDependencies": {
     "chance": "~1.1.8",

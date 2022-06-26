@@ -102,14 +102,12 @@ var config = {
         {
           ns: 'ns1',
           queue: 'one_dest',
-          filter: null,
-          exclusive: false
+          selector: null,
         },
         {
           ns: 'ns1',
           queue: 'other_dest',
-          filter: null,
-          exclusive: false
+          selector: `msg.hdrs['aaa'].match (/^yes-/)`
         }
       ]
     },
@@ -122,14 +120,12 @@ var config = {
         {
           ns: 'ns1',
           queue: 'one_dest',
-          filter: null,
-          exclusive: false
+          selector: null
         },
         {
           ns: 'ns1',
           queue: 'other_dest',
-          filter: null,
-          exclusive: false
+          selector: null
         }
       ]
     },
