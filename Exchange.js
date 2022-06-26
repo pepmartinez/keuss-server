@@ -11,17 +11,23 @@ class Destination {
   constructor (name, q, selector, logger) {
     this._name = name || q.name ();
     this._q = q;
-    this._selector_str = selector;
+    this._selector_raw = selector;
     this._logger = logger;
 
-    if (selector && _.isString (selector)) {
-      this._logger.verbose ('Destination [%s]: parsing selector [%s]', this._name, selector);
-
-      try {
-        this._selector_ast = parse (selector).body[0].expression;
+    if (selector) {
+      if (_.isFunction (selector)) {
+        this._sel = selector;
       }
-      catch (e) {
-        throw new Error (`parse error in line ${e.lineNumber}, pos ${e.index} : ${e.description}`);
+      else if (_.isString (selector)) {
+        this._logger.verbose ('Destination [%s]: parsing selector [%s]', this._name, selector);
+
+        try {
+          const ast = parse (selector).body[0].expression;
+          this._sel = (env => evaluate (ast, env));
+        }
+        catch (e) {
+          throw new Error (`parse error in line ${e.lineNumber}, pos ${e.index} : ${e.description}`);
+        }
       }
     }
 
@@ -31,13 +37,11 @@ class Destination {
 
   ///////////////////////////////////////////
   apply (item, cb) {
-    let really_apply = (!this._selector_ast);
+    let really_apply = (!this._sel);
 
-    if (this._selector_ast) {
+    if (this._sel) {
       try {
-        this._logger.verbose ('eval on %j', item)
-        really_apply = evaluate (this._selector_ast, {msg: item});
-        this._logger.verbose ('eval is %j', really_apply)
+        really_apply = this._sel ({msg: item});
       }
       catch (e) {
         this._logger.error (e);
