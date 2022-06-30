@@ -44,7 +44,7 @@ class Destination {
         really_apply = this._sel ({msg: item});
       }
       catch (e) {
-        this._logger.error (e);
+        this._logger.error ('Destination [%s]: error on selector exec: %j', this._name, e);
         really_apply = false;
       }
     }
