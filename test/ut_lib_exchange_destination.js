@@ -202,6 +202,23 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       })
     });
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it('use opts from selector (fn) to insert in dst', done => {
+      const q = new mock_q ();
+      const d = new Destination ('someone', q, () => {return {mature:333, delay: 6, tries: 2, aaa: 5656}}, logger);
+      const item = { payload: 'abd', hdrs: { a: 123 } };
+
+      d.apply (item, (err, res) => {
+        (_.isNil (err)).should.be.true();
+        res.should.eql ({mature:333, delay: 6, tries: 2, aaa: 5656});
+        q.status ().should.eql ({
+          payload: 'abd',
+          opts: { hdrs: { a: 123 }, mature: 333, delay: 6, tries: 2 }
+        });
+        done ();
+      })
+    });
+
 
   });
 });
