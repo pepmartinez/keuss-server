@@ -3,7 +3,7 @@ const _ =     require ('lodash');
 const util =  require ('util');
 const Log =   require ('winston-log-space');
 
-const Exchange = require ('./Exchange');
+const Exchange = require ('./lib/exchange/Exchange');
 
 const logger = Log.logger ('scope');
 
