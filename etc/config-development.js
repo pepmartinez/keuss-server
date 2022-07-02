@@ -129,6 +129,35 @@ var config = {
         }
       ]
     },
+    loop_a :{
+      src: {
+        ns: 'N',
+        queue: 'loop_0',
+      },
+      dst: [
+        {
+          ns: 'ns1',
+          queue: 'loop_1',
+          selector: env => {return {delay: 2}},
+        }
+      ]
+    },
+    loop_b :{
+      src: {
+        ns: 'ns1',
+        queue: 'loop_1',
+      },
+      dst: [
+        {
+          ns: 'N',
+          queue: 'loop_0',
+          selector: env => {return {delay: 2}},
+        }
+      ]
+    }
+  },
+  main: {
+    max_hops: 32
   }
 };
 

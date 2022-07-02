@@ -6,6 +6,9 @@ var Log =   require ('winston-log-space');
 var cconf = new CC();
 
 var defaults = {
+  main: {
+    max_hops: 11
+  },
   http: {
     port: 3444,
     users: {}
@@ -70,7 +73,7 @@ cconf
   .file (__dirname + '/etc/config-{NODE_ENV:development}.js', {ignore_missing: true})
   .env  ({prefix: 'KS_'})
   .args ()
-  .done (function (err, config) {
+  .done ((err, config) => {
     if (err) {
       console.error (err);
       process.exit (1);
@@ -79,14 +82,15 @@ cconf
     Log.init (err => {
       if (err) return console.error (err);
 
-      var logger = Log.logger ('main');
+      const logger = Log.logger ('main');
 
-      var BaseApp = require ('./app');
-      var Stomp =   require ('./stomp');
-      var Amqp =   require ('./amqp');
-      var Scope =   require ('./Scope');
+      const BaseApp = require ('./app');
+      const Stomp =   require ('./stomp');
+      const Amqp =   require ('./amqp');
+      const Scope =   require ('./Scope');
 
-      var context = {};
+      const context = {};
+      context.config = config;
       context.scope = new Scope ();
 
       async.series ([
@@ -114,7 +118,7 @@ cconf
         cb => {
           // init http/rest server
           context.server = require('http-shutdown')(http.createServer (context.app));
-          var port = config.http.port || 3444;
+          const port = config.http.port || 3444;
 
           context.server.listen (port, err => {
             if (err) return cb (err);
