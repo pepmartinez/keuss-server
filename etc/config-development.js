@@ -107,7 +107,7 @@ var config = {
         {
           ns: 'ns1',
           queue: 'other_dest',
-          selector: `env.msg.hdrs['aaaa'] && env.msg.hdrs['aaaa'].match (/^yes-/)`
+          selector: `env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/)`
         }
       ]
     },
