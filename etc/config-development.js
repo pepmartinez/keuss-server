@@ -157,7 +157,7 @@ var config = {
     }
   },
   main: {
-    max_hops: 32
+    max_hops: 7
   }
 };
 
