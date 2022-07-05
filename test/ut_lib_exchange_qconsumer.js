@@ -3,7 +3,8 @@ const async =  require('async');
 const _ =      require('lodash');
 
 
-const Destination = require ('../lib/exchange/QConsumer');
+const QConsumer =   require ('../lib/exchange/QConsumer');
+const Destination = require ('../lib/exchange/Destination');
 
 class mock_q {
   constructor (name) {
@@ -55,6 +56,9 @@ describe('Unit tests on lib/exchange/Destination class', () => {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it('fans ok to no queue and moves to __no_route__ queue' );
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it('does not fan to any queue and moves to __too_many_hops__ queue if too many hops' );
 
 
 

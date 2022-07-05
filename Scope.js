@@ -24,8 +24,20 @@ class Scope {
 
 
   //////////////////////////////
+  exchanges () {
+    return this._exchanges;
+  }
+
+
+  //////////////////////////////
   namespace (t) {
     return this._q_namespaces[t];
+  }
+
+
+  //////////////////////////////
+  exchange (t) {
+    return this._exchanges[t];
   }
 
 

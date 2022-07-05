@@ -120,12 +120,10 @@ var config = {
         {
           ns: 'ns1',
           queue: 'one_dest',
-          selector: null
         },
         {
           ns: 'ns1',
           queue: 'other_dest',
-          selector: null
         }
       ]
     },
