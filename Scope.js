@@ -120,7 +120,7 @@ class Scope {
 
         bk_module (bk_opts, (err, factory) => {
           if (err) {
-            logger.info ('error initializing queue namespace [%s]: %j', namespace_name, err);
+            logger.info ('error initializing queue namespace [%s]: %s', namespace_name, err.toString ());
             return cb (err);
           }
 

@@ -86,7 +86,7 @@ cconf
 
       const BaseApp = require ('./app');
       const Stomp =   require ('./stomp');
-      const Amqp =   require ('./amqp');
+      const Amqp =    require ('./amqp');
       const Scope =   require ('./Scope');
 
       const context = {};

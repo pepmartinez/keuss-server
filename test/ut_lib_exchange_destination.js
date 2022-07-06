@@ -96,7 +96,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, null, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.true();
         q.status ().should.eql ({payload: item.payload, opts: {hdrs: item.hdrs}});
@@ -110,7 +110,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, 666, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.true();
         q.status ().should.eql ({payload: item.payload, opts: {hdrs: item.hdrs}});
@@ -124,7 +124,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, env => (env.msg.hdrs.a==123), logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.true();
         q.status ().should.eql ({payload: item.payload, opts: {hdrs: item.hdrs}});
@@ -138,7 +138,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, 'env.msg.hdrs.a==123', logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.true();
         q.status ().should.eql ({payload: item.payload, opts: {hdrs: item.hdrs}});
@@ -152,7 +152,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, env => (env.msg.hdrs.a==456), logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.false();
         q.status ().should.eql ({payload: undefined, opts: undefined});
@@ -166,7 +166,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, 'env.msg.hdrs.a==555', logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.false();
         q.status ().should.eql ({payload: undefined, opts: undefined});
@@ -180,7 +180,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, env => {throw new Error ('thown error')}, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.false();
         q.status ().should.eql ({payload: undefined, opts: undefined});
@@ -194,7 +194,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, `throw new Error ('thown error')`, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.be.false();
         q.status ().should.eql ({payload: undefined, opts: undefined});
@@ -208,7 +208,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       const d = new Destination ('someone', q, () => {return {mature:333, delay: 6, tries: 2, aaa: 5656}}, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      d.apply (item, (err, res) => {
+      d.apply (item, {}, (err, res) => {
         (_.isNil (err)).should.be.true();
         res.should.eql ({mature:333, delay: 6, tries: 2, aaa: 5656});
         q.status ().should.eql ({
