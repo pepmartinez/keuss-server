@@ -109,7 +109,12 @@ var config = {
           queue: 'other_dest',
           selector: `env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/)`
         }
-      ]
+      ],
+      consumer: {
+        parallel: 2,
+        wsize: 11,
+        reserve: true
+      }
     },
     beta: {
       src: {

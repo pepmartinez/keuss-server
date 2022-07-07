@@ -219,6 +219,56 @@ describe('Unit tests on lib/exchange/Destination class', () => {
       })
     });
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it ('keeps state correctly on fn selector', done => {
+      const q = new mock_q ();
+      const d = new Destination ('someone', q, env => {env.state.cnt = {a:22, b: '666'}; return true;}, logger);
+      const item = { payload: 'abd', hdrs: { a: 123 } };
+
+      const state = {};
+
+      d.apply (item, state, (err, res) => {
+        (_.isNil (err)).should.be.true();
+        res.should.eql (true);
+        q.status ().should.eql ({ payload: 'abd', opts: { hdrs: { a: 123 }} });
+        state.should.eql ({ cnt: { a: 22, b: '666' } });
+        done ();
+      })
+    });
+/*
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it ('keeps state correctly on string selector', done => {
+      const q = new mock_q ();
+      const d = new Destination ('someone', q, 'env.state.cnt == 1', logger);
+      const item = { payload: 'abd', hdrs: { a: 123 } };
+
+      const state = {cnt: 1};
+
+      d.apply (item, state, (err, res) => {
+        (_.isNil (err)).should.be.true();
+        console.log (res)
+        q.status ().should.eql ({ payload: 'abd', opts: { hdrs: { a: 123 }} });
+        state.should.eql ({ cnt: 666 });
+        done ();
+      })
+    });
+*/
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it ('modifies message correctly on fn selector', done => {
+      const q = new mock_q ();
+      const d = new Destination ('someone', q, env => {env.msg.payload.aaa = 666; env.msg.hdrs['a-b-c'] = 1234; return true;}, logger);
+      const item = { payload: {aaa: 'abd'}, hdrs: { a: 123 } };
+
+      const state = {};
+
+      d.apply (item, state, (err, res) => {
+        (_.isNil (err)).should.be.true();
+        res.should.be.true();
+        q.status ().should.eql ({ payload: {aaa: 666}, opts: { hdrs: { a: 123, 'a-b-c': 1234 }} });
+        state.should.eql ({});
+        done ();
+      });
+    });
 
   });
 });
