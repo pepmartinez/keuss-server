@@ -108,7 +108,7 @@ const config_pop = {
           env.state.ct++;
           env.msg.hdrs.dolkaren = 'asdfghjk';
           env.msg.hdrs.ct = 'from stage_b1 ' + env.state.ct;
-          env.msg.payload.c = 666;
+          env.msg.payload.c = 'extra-666';
           return true;
         }
       },
@@ -120,7 +120,7 @@ const config_pop = {
           env.state.ct++;
           env.msg.hdrs.dolkaren = 'asdfghjk';
           env.msg.hdrs.ct = 'from stage_b2 ' + env.state.ct;
-          env.msg.payload.c = 999;
+          env.msg.payload.c = 'extra-999';
           return true;
         }
       }]
@@ -197,11 +197,12 @@ function get_status (namespace, q, cb) {
 const metrics = {
 };
 
-_.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
+_.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback', 'exchange_hops'], i => {
   metrics['keuss_' + i] = {
     labels: () => {
       return {
-        inc: () => {}
+        inc: () => {},
+        observe: () =>  {}
       };
     }
   };
@@ -480,8 +481,8 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
         cb => get_status ('ns1', 'stage_b2', cb),
         cb => get_status ('ns1', 'stage_c', cb),
 
-        cb => put_msg('ns1', 'stage_a', {a:'144', b: 144}, {'x-ks-hdr-extra-hdr': 'qwertyuiop'}, cb),
-        cb => put_msg('ns1', 'stage_a', {a:'288', b: 288}, {'x-ks-hdr-extra-hdr': 'qwertyuiop'}, cb),
+        cb => put_msg('ns1', 'stage_a', {a:'144'}, {'x-ks-hdr-extra-hdr': 'qwertyuiop'}, cb),
+        cb => put_msg('ns1', 'stage_a', {a:'288'}, {'x-ks-hdr-extra-hdr': 'qwertyuiop'}, cb),
 
         cb => get_msg('ns1', 'stage_c', cb),
         cb => get_msg('ns1', 'stage_c', cb),
@@ -502,7 +503,7 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
         allres[5].should.match ({id: /.+/});
 
         allres[6].should.match ({
-          body: { a: '144', b: 144, c: 666 },
+          body: { a: /.+/, c: /^extra-/ },
           hdrs: {
             'x-ks-hdr-extra-hdr': 'qwertyuiop',
             'x-ks-hdr-x-hop-count': '2',
@@ -511,7 +512,7 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
         });
 
         allres[7].should.match ({
-          body: { a: '288', b: 288, c: 666 },
+          body: { a: /.+/, c: /^extra-/ },
           hdrs: {
             'x-ks-hdr-extra-hdr': 'qwertyuiop',
             'x-ks-hdr-x-hop-count': '2',
@@ -520,7 +521,7 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
         });
 
         allres[8].should.match ({
-          body: { a: '144', b: 144, c: 999 },
+          body: { a: /.+/, c: /^extra-/ },
           hdrs: {
             'x-ks-hdr-extra-hdr': 'qwertyuiop',
             'x-ks-hdr-x-hop-count': '2',
@@ -530,7 +531,7 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
         });
 
         allres[9].should.match ({
-          body: { a: '288', b: 288, c: 999 },
+          body: { a: /.+/, c: /^extra-/ },
           hdrs: {
             'x-ks-hdr-extra-hdr': 'qwertyuiop',
             'x-ks-hdr-x-hop-count': '2',

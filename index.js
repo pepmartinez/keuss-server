@@ -38,7 +38,7 @@ var defaults = {
 
 
 function _create_q_metric (context, id, help) {
-  let the_metric = context.promster.register.getSingleMetric('keuss_' + id);
+  const the_metric = context.promster.register.getSingleMetric('keuss_' + id);
 
   if (the_metric) {
     context.metrics[id] = the_metric;
@@ -52,17 +52,40 @@ function _create_q_metric (context, id, help) {
   }
 }
 
-function _create_metrics (context, cb) {
-  // create extra metrics
-  context.metrics = {};
+
+function _create_exchange_metrics (context) {
+  const exchange_hops = context.promster.register.getSingleMetric('keuss_exchange_hops');
+
+  if (exchange_hops) {
+    context.metrics['keuss_exchange_hops'] = exchange_hops;
+  }
+  else {
+    context.metrics['keuss_exchange_hops'] = new context.promster.Histogram ({
+      name: 'keuss_exchange_hops',
+      help: 'hops in exchanges, from src queue to dst queues',
+      labelNames: ['exchange', 'status'],
+      buckets: [0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000]
+    });
+  }
+}
+
+
+function _create_q_metrics (context) {
   _create_q_metric (context, 'q_push',     'counters on queue insertion through server');
   _create_q_metric (context, 'q_pop',      'counters on queue pop through server');
   _create_q_metric (context, 'q_reserve',  'counters on queue reserve through server');
   _create_q_metric (context, 'q_commit',   'counters on queue commit through server');
   _create_q_metric (context, 'q_rollback', 'counters on queue rollback through server');
+}
 
+
+function _create_metrics (context, cb) {
+  context.metrics = {};
+  _create_q_metrics (context);
+  _create_exchange_metrics (context);
   cb ();
 }
+
 
 
 cconf
