@@ -29,6 +29,9 @@ const logger = {
 }
 
 
+should.config.checkProtoEql = false;
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 describe('Unit tests on lib/exchange/Destination class', () => {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +67,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it('creates ok with string selector with a correct expression', done => {
-      const d = new Destination ('someone', new mock_q (), 'msg.hdrs["abc"] == "66"', logger);
+      const d = new Destination ('someone', new mock_q (), 'msg => (msg.hdrs["abc"] == "66")', logger);
       done ();
     });
 
@@ -81,7 +84,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
         done ('did not fail');
       }
       catch (e) {
-        e.message.should.match (/^parse error in/)
+        e.toString ().should.match (/Unexpected number/);
         done();
       }
     });
@@ -135,7 +138,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it('applies when string selector returns true', done => {
       const q = new mock_q ();
-      const d = new Destination ('someone', q, 'env.msg.hdrs.a==123', logger);
+      const d = new Destination ('someone', q, 'env => (env.msg.hdrs.a==123)', logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
       d.apply (item, {}, (err, res) => {
@@ -163,7 +166,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it('does not apply when string selector returns false', done => {
       const q = new mock_q ();
-      const d = new Destination ('someone', q, 'env.msg.hdrs.a==555', logger);
+      const d = new Destination ('someone', q, 'env => (env.msg.hdrs.a==555)', logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
       d.apply (item, {}, (err, res) => {
@@ -191,7 +194,7 @@ describe('Unit tests on lib/exchange/Destination class', () => {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it('does not apply when string selector throws', done => {
       const q = new mock_q ();
-      const d = new Destination ('someone', q, `throw new Error ('thown error')`, logger);
+      const d = new Destination ('someone', q, `env => {throw new Error ('thown error')}`, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
       d.apply (item, {}, (err, res) => {
@@ -220,6 +223,23 @@ describe('Unit tests on lib/exchange/Destination class', () => {
     });
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it('use opts from selector (string) to insert in dst', done => {
+      const q = new mock_q ();
+      const d = new Destination ('someone', q, '() => {return {mature:333, delay: 6, tries: 2, aaa: 5656}}', logger);
+      const item = { payload: 'abd', hdrs: { a: 123 } };
+
+      d.apply (item, {}, (err, res) => {
+        (_.isNil (err)).should.be.true();
+        should (res).eql ({mature:333, delay: 6, tries: 2, aaa: 5656});
+        q.status ().should.eql ({
+          payload: 'abd',
+          opts: { hdrs: { a: 123 }, mature: 333, delay: 6, tries: 2 }
+        });
+        done ();
+      })
+    });
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it ('keeps state correctly on fn selector', done => {
       const q = new mock_q ();
       const d = new Destination ('someone', q, env => {env.state.cnt = {a:22, b: '666'}; return true;}, logger);
@@ -235,28 +255,45 @@ describe('Unit tests on lib/exchange/Destination class', () => {
         done ();
       })
     });
-/*
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it ('keeps state correctly on string selector', done => {
       const q = new mock_q ();
-      const d = new Destination ('someone', q, 'env.state.cnt == 1', logger);
+      const d = new Destination ('someone', q, `env => {env.state.cnt = {a:22, b: '666'}; return true;}`, logger);
       const item = { payload: 'abd', hdrs: { a: 123 } };
 
-      const state = {cnt: 1};
+      const state = {};
 
       d.apply (item, state, (err, res) => {
         (_.isNil (err)).should.be.true();
-        console.log (res)
+        res.should.eql (true);
         q.status ().should.eql ({ payload: 'abd', opts: { hdrs: { a: 123 }} });
-        state.should.eql ({ cnt: 666 });
+        state.should.eql ({ cnt: { a: 22, b: '666' } });
         done ();
       })
     });
-*/
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     it ('modifies message correctly on fn selector', done => {
       const q = new mock_q ();
       const d = new Destination ('someone', q, env => {env.msg.payload.aaa = 666; env.msg.hdrs['a-b-c'] = 1234; return true;}, logger);
+      const item = { payload: {aaa: 'abd'}, hdrs: { a: 123 } };
+
+      const state = {};
+
+      d.apply (item, state, (err, res) => {
+        (_.isNil (err)).should.be.true();
+        res.should.be.true();
+        q.status ().should.eql ({ payload: {aaa: 666}, opts: { hdrs: { a: 123, 'a-b-c': 1234 }} });
+        state.should.eql ({});
+        done ();
+      });
+    });
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    it ('modifies message correctly on string selector', done => {
+      const q = new mock_q ();
+      const d = new Destination ('someone', q, `env => {env.msg.payload.aaa = 666; env.msg.hdrs['a-b-c'] = 1234; return true;}`, logger);
       const item = { payload: {aaa: 'abd'}, hdrs: { a: 123 } };
 
       const state = {};

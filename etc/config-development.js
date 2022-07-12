@@ -107,7 +107,7 @@ var config = {
         {
           ns: 'ns1',
           queue: 'other_dest',
-          selector: `env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/)`
+          selector: `env => (env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/))`
         }
       ],
       consumer: {
@@ -141,9 +141,17 @@ var config = {
         {
           ns: 'ns1',
           queue: 'loop_1',
+          selector: env => {return {delay: 1}},
+        },
+	{
+          ns: 'ns1',
+          queue: 'loop_1',
           selector: env => {return {delay: 2}},
         }
-      ]
+      ],
+      consumer: {
+        reserve: true
+      }
     },
     loop_b :{
       src: {
@@ -154,13 +162,21 @@ var config = {
         {
           ns: 'N',
           queue: 'loop_0',
+          selector: env => {return {delay: 1}},
+        },
+	{
+          ns: 'N',
+          queue: 'loop_0',
           selector: env => {return {delay: 2}},
-        }
-      ]
+        },
+      ],
+      consumer: {
+        reserve: true
+      }
     }
   },
   main: {
-    max_hops: 7
+    max_hops: 11
   }
 };
 

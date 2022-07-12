@@ -457,7 +457,7 @@ _.forEach([
         allres[1].should.eql(msg);
 
         var t1 = new Date().getTime();
-        (t1 - t0).should.be.approximately(3000, 100);
+        (t1 - t0).should.be.approximately(3000, 500);
 
         done(err);
       });

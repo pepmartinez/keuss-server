@@ -45,8 +45,6 @@
     "uuid": "~8.3.2",
     "winston-log-space": "~1.0.7",
     "rhea": "3.0.0",
-    "static-eval": "~2.1.0",
-    "esprima": "~4.0.1",
     "joi": "~17.6.0"
   },
   "devDependencies": {
@@ -59,6 +57,6 @@
   },
   "scripts": {
     "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/",
-    "test-with-coverage": "nyc --reporter=text -- mocha --reporter spec --check-leaks --no-timeouts --exit test/"
+    "test-with-coverage": "nyc --reporter=html -- mocha --reporter spec --check-leaks --no-timeouts --exit test/"
   }
 }

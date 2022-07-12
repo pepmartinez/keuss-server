@@ -3,7 +3,6 @@ const async =   require('async');
 const _ =       require('lodash');
 const Log =     require('winston-log-space');
 const request = require('supertest');
-const { mapKeys } = require('lodash');
 
 const context = {};
 
@@ -68,7 +67,7 @@ const config_pop = {
       {
         ns: 'ns2',
         queue: 'ex_test_dest',
-        selector: `env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/)`
+        selector: `env => (env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/))`
       }]
     },
 
