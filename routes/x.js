@@ -1,7 +1,8 @@
 const express =    require ('express');
-const async =      require ('async');
 const _ =          require ('lodash');
 const bodyParser = require ('body-parser');
+
+const Exchange = require ('../lib/exchange/Exchange');
 
 
 //////////////////////////////////////////////////////////////////////////////////////
@@ -68,6 +69,26 @@ function get_router(config, context) {
   }
 
 
+  //////////////////////////////////////////////////////////////////////////////////////
+  function _create_exchange (req, res) {
+    const x_name = req.param.X;
+    const config = req.body;
+
+    const v_error = Exchange.validate_config (config);
+
+    if (v_error) return res.status(400).send (v_error);
+
+    try {
+      scope.notify_on_exchanges (config);
+      res.status (201).send ();
+    }
+    catch (re) {
+      res.status (404).send (re.toString ());
+    }
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////
   var router = express.Router();
 
 
@@ -83,8 +104,10 @@ function get_router(config, context) {
 
   const json_mw = bodyParser.json ();
 
-  router.get ('/',   [json_mw], _get_exchanges);
-  router.get ('/:x', [json_mw], _get_exchange_status);
+  router.get  ('/',              _get_exchanges);
+  router.get  ('/:x',            _get_exchange_status);
+  router.post ('/:X', [json_mw], _create_exchange);
+  router.put  ('/:X', [json_mw], _create_exchange);
 
   return router;
 }

@@ -41,6 +41,17 @@ class Scope {
   }
 
 
+  //////////////////////////////////////////////////
+  notify_on_exchanges (ev) {
+    const ns = ev.src.ns;
+    const src_ns = this.namespace (ns);
+
+    if (!src_ns)throw ReferenceError (`namespace ${ev.src.ns} not defined`);
+    src_ns.factory._signaller_factory.emit_extra (ns, 'exchanges', ev);
+    logger.info ('emitted event [%j] to exchange news on ns [%s]', ev, ns);
+  }
+
+
   //////////////////////////////
   queue_from_ns (ns, qname, opts) {
     if (!ns.q_repo.has(qname)) {
@@ -139,7 +150,7 @@ class Scope {
 
   //////////////////////////////
   _init_exchanges (config, context, cb) {
-    var tasks = [];
+    const tasks = [];
 
     _.forEach (config.exchanges, (exchange, exchange_name) => {
       if (exchange.disable) {
@@ -162,6 +173,25 @@ class Scope {
 
 
   //////////////////////////////////////////////////
+  _subscribe_to_exchanges (cb) {
+    _.each (this._q_namespaces, (v, k) => {
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges', ev => this._on_exchange_event (ev));
+      logger.info ('subscribed to exchange news on ns [%s]', k);
+
+//      v.factory._signaller_factory.emit_extra (k, 'exchanges',`ping ${k}`);
+    });
+
+    cb ();
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_event (ev) {
+    logger.verbose ('got exchange event %j', ev);
+  }
+
+
+  //////////////////////////////////////////////////
   _create_metric_gauge_q_global (id, help) {
     let the_metric = this._context.promster.register.getSingleMetric('q_global_' + id);
 
@@ -176,6 +206,7 @@ class Scope {
       });
     }
   }
+
 
   //////////////////////////////////////////////////
   _create_metric_counter_q_global (id, help) {
@@ -266,6 +297,7 @@ class Scope {
       cb => this._init_signal_providers (config, cb),
       cb => this._init_backends         (config, cb),
       cb => this._init_exchanges        (config, context, cb),
+      cb => this._subscribe_to_exchanges (cb),
     ], cb);
   }
 
