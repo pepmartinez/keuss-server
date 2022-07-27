@@ -71,19 +71,15 @@ function get_router(config, context) {
 
   //////////////////////////////////////////////////////////////////////////////////////
   function _create_exchange (req, res) {
-    const x_name = req.param.X;
+    const x_name = req.params.X;
     const config = req.body;
 
-    const v_error = Exchange.validate_config (config);
-
-    if (v_error) return res.status(400).send (v_error);
-
     try {
-      scope.notify_creation_of_exchange (config);
+      scope.notify_creation_of_exchange ({name: x_name, decl: config});
       res.status (201).send ();
     }
     catch (re) {
-      res.status (404).send (re.toString ());
+      res.status (re.c || 500).send (re.t || re.toString ());
     }
   }
 

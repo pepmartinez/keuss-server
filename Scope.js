@@ -43,10 +43,17 @@ class Scope {
 
   //////////////////////////////////////////////////
   notify_creation_of_exchange (ev) {
-    const ns = ev.src.ns;
+    // TODO check if existent
+
+    const v_error = Exchange.validate_config (ev.decl);
+
+    if (v_error) throw {c: 400, t: v_error};
+
+    const ns = ev.decl.src.ns;
     const src_ns = this.namespace (ns);
 
-    if (!src_ns)throw ReferenceError (`namespace ${ev.src.ns} not defined`);
+    if (!src_ns) throw {c: 404, t: `namespace ${ns} not defined`};
+
     src_ns.factory._signaller_factory.emit_extra (ns, 'exchanges/create', ev);
     logger.info ('emitted event [%j] to exchange news on ns [%s]', ev, ns);
   }
@@ -59,6 +66,20 @@ class Scope {
     }
 
     return ns.q_repo.get(qname);
+  }
+
+
+  //////////////////////////////
+  create_exchange (name, exchange_decl, cb) {
+    if (exchange_decl.disable) {
+      logger.info ('exchange [%s] disabled, ignored', name);
+      return cb ();
+    }
+
+    logger.info ('creating exchange [%s]', name);
+    const ex = new Exchange (name, exchange_decl, this._context);
+    this._exchanges[name] = ex;
+    ex.init (cb);
   }
 
 
@@ -149,21 +170,11 @@ class Scope {
 
 
   //////////////////////////////
-  _init_exchanges (config, context, cb) {
+  _init_exchanges (config, cb) {
     const tasks = [];
 
     _.forEach (config.exchanges, (exchange, exchange_name) => {
-      if (exchange.disable) {
-        logger.info ('exchange [%s] disabled, not loading', exchange_name);
-        return;
-      }
-
-      tasks.push (cb => {
-        logger.info ('creating exchange [%s]', exchange_name);
-        const ex = new Exchange (exchange_name, exchange, context);
-        this._exchanges[exchange_name] = ex;
-        ex.init (cb);
-      });
+      tasks.push (cb => this.create_exchange (exchange_name, exchange, cb));
     });
 
     tasks.push (cb => this.refresh (cb));
@@ -186,6 +197,14 @@ class Scope {
   //////////////////////////////////////////////////
   _on_exchange_create_event (ev) {
     logger.verbose ('got exchange/create event %j', ev);
+    this.create_exchange (ev.name, ev.decl, err => {
+      if (err) {
+        logger.error ('error when creating exchange %j: %s', ev, err.toString ());
+      }
+      else {
+        logger.info ('created exchange %j', ev);
+      }
+    });
   }
 
 
@@ -294,7 +313,7 @@ class Scope {
       cb => this._init_stats_providers  (config, cb),
       cb => this._init_signal_providers (config, cb),
       cb => this._init_backends         (config, cb),
-      cb => this._init_exchanges        (config, context, cb),
+      cb => this._init_exchanges        (config, cb),
       cb => this._subscribe_to_exchanges (cb),
     ], cb);
   }
