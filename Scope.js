@@ -44,6 +44,7 @@ class Scope {
   //////////////////////////////////////////////////
   notify_creation_of_exchange (ev) {
     // TODO check if existent
+    if (this.exchange (ev.name)) throw {c: 409, t: `exchange ${ev.name} already exists`};
 
     const v_error = Exchange.validate_config (ev.decl);
 
