@@ -79,7 +79,7 @@ function get_router(config, context) {
     if (v_error) return res.status(400).send (v_error);
 
     try {
-      scope.notify_on_exchanges (config);
+      scope.notify_creation_of_exchange (config);
       res.status (201).send ();
     }
     catch (re) {

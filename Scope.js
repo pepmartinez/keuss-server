@@ -42,12 +42,12 @@ class Scope {
 
 
   //////////////////////////////////////////////////
-  notify_on_exchanges (ev) {
+  notify_creation_of_exchange (ev) {
     const ns = ev.src.ns;
     const src_ns = this.namespace (ns);
 
     if (!src_ns)throw ReferenceError (`namespace ${ev.src.ns} not defined`);
-    src_ns.factory._signaller_factory.emit_extra (ns, 'exchanges', ev);
+    src_ns.factory._signaller_factory.emit_extra (ns, 'exchanges/create', ev);
     logger.info ('emitted event [%j] to exchange news on ns [%s]', ev, ns);
   }
 
@@ -175,10 +175,8 @@ class Scope {
   //////////////////////////////////////////////////
   _subscribe_to_exchanges (cb) {
     _.each (this._q_namespaces, (v, k) => {
-      v.factory._signaller_factory.subscribe_extra (k, 'exchanges', ev => this._on_exchange_event (ev));
-      logger.info ('subscribed to exchange news on ns [%s]', k);
-
-//      v.factory._signaller_factory.emit_extra (k, 'exchanges',`ping ${k}`);
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/create', ev => this._on_exchange_create_event (ev));
+      logger.info ('subscribed to exchange/create on ns [%s]', k);
     });
 
     cb ();
@@ -186,8 +184,8 @@ class Scope {
 
 
   //////////////////////////////////////////////////
-  _on_exchange_event (ev) {
-    logger.verbose ('got exchange event %j', ev);
+  _on_exchange_create_event (ev) {
+    logger.verbose ('got exchange/create event %j', ev);
   }
 
 
