@@ -43,20 +43,37 @@ class Scope {
 
   //////////////////////////////////////////////////
   notify_creation_of_exchange (ev) {
-    // TODO check if existent
+    // check if existent
     if (this.exchange (ev.name)) throw {c: 409, t: `exchange ${ev.name} already exists`};
 
+    // validate decl
     const v_error = Exchange.validate_config (ev.decl);
-
     if (v_error) throw {c: 400, t: v_error};
 
+    // get ns of src queue
     const ns = ev.decl.src.ns;
     const src_ns = this.namespace (ns);
 
+    // must exist
     if (!src_ns) throw {c: 404, t: `namespace ${ns} not defined`};
 
+    // emit creation on the ns of the src queue; actual creation happens at the event's handler
     src_ns.factory._signaller_factory.emit_extra (ns, 'exchanges/create', ev);
-    logger.info ('emitted event [%j] to exchange news on ns [%s]', ev, ns);
+    logger.info ('emitted event [%j] to exchanges/create on ns [%s]', ev, ns);
+  }
+
+
+  //////////////////////////////////////////////////
+  notify_deletion_of_exchange (ev) {
+    // check if existent
+    const x = this.exchange (ev.name)
+    if (!x) throw {c: 404, t: `exchange ${ev.name} does not exist`};
+
+    const ns = x._qconsumer._src.ns();
+    const sf = x._qconsumer._src._factory._signaller_factory;
+
+    sf.emit_extra (ns, 'exchanges/delete', ev);
+    logger.info ('emitted event [%j] to exchanges/delete on ns [%s]', ev, ns);
   }
 
 
@@ -189,6 +206,9 @@ class Scope {
     _.each (this._q_namespaces, (v, k) => {
       v.factory._signaller_factory.subscribe_extra (k, 'exchanges/create', ev => this._on_exchange_create_event (ev));
       logger.info ('subscribed to exchange/create on ns [%s]', k);
+
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/delete', ev => this._on_exchange_delete_event (ev));
+      logger.info ('subscribed to exchange/delete on ns [%s]', k);
     });
 
     cb ();
@@ -198,6 +218,7 @@ class Scope {
   //////////////////////////////////////////////////
   _on_exchange_create_event (ev) {
     logger.verbose ('got exchange/create event %j', ev);
+
     this.create_exchange (ev.name, ev.decl, err => {
       if (err) {
         logger.error ('error when creating exchange %j: %s', ev, err.toString ());
@@ -205,6 +226,22 @@ class Scope {
       else {
         logger.info ('created exchange %j', ev);
       }
+    });
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_delete_event (ev) {
+    logger.verbose ('got exchange/delete event %j', ev);
+
+    const x = this._exchanges[ev.name];
+    if (!x) return logger.warn ('_on_exchange_delete_event: exchange [%s] does not exist', ev.name);
+
+    x.end (err => {
+      delete this._exchanges[ev.name];
+
+      if (err) logger.error ('while closing exchange %s: %s', ev.name, err.toString ());
+      logger.info ('exchange %s closed', ev.name);
     });
   }
 
@@ -311,10 +348,10 @@ class Scope {
     this._config = config;
 
     async.series ([
-      cb => this._init_stats_providers  (config, cb),
-      cb => this._init_signal_providers (config, cb),
-      cb => this._init_backends         (config, cb),
-      cb => this._init_exchanges        (config, cb),
+      cb => this._init_stats_providers   (config, cb),
+      cb => this._init_signal_providers  (config, cb),
+      cb => this._init_backends          (config, cb),
+      cb => this._init_exchanges         (config, cb),
       cb => this._subscribe_to_exchanges (cb),
     ], cb);
   }

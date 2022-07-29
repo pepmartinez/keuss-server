@@ -85,6 +85,20 @@ function get_router(config, context) {
 
 
   //////////////////////////////////////////////////////////////////////////////////////
+  function _delete_exchange (req, res) {
+    const x_name = req.params.X;
+
+    try {
+      scope.notify_deletion_of_exchange ({name: x_name});
+      res.status (201).send ();
+    }
+    catch (re) {
+      res.status (re.c || 500).send (re.t || re.toString ());
+    }
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////
   var router = express.Router();
 
 
@@ -100,10 +114,11 @@ function get_router(config, context) {
 
   const json_mw = bodyParser.json ();
 
-  router.get  ('/',              _get_exchanges);
-  router.get  ('/:x',            _get_exchange_status);
-  router.post ('/:X', [json_mw], _create_exchange);
-  router.put  ('/:X', [json_mw], _create_exchange);
+  router.get    ('/',              _get_exchanges);
+  router.get    ('/:x',            _get_exchange_status);
+  router.post   ('/:X', [json_mw], _create_exchange);
+  router.put    ('/:X', [json_mw], _create_exchange);
+  router.delete ('/:X',            _delete_exchange);
 
   return router;
 }

@@ -1,4 +1,5 @@
 * General
+  + ability to disable stomp & amqp on config
 * REST
 * STOMP
   + add auth
