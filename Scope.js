@@ -89,6 +89,12 @@ class Scope {
 
   //////////////////////////////
   create_exchange (name, exchange_decl, cb) {
+    // ensure it does not exist
+    if (this._exchanges[name]) {
+      logger.warn ('create_exchange: exchange [%s] does exist, ignoring creation', ev.name);
+      return cb ();
+    }
+
     if (exchange_decl.disable) {
       logger.info ('exchange [%s] disabled, ignored', name);
       return cb ();
@@ -219,14 +225,28 @@ class Scope {
   _on_exchange_create_event (ev) {
     logger.verbose ('got exchange/create event %j', ev);
 
-    this.create_exchange (ev.name, ev.decl, err => {
-      if (err) {
-        logger.error ('error when creating exchange %j: %s', ev, err.toString ());
-      }
-      else {
-        logger.info ('created exchange %j', ev);
-      }
-    });
+    try {
+      this.create_exchange (ev.name, ev.decl, (err, xchg) => {
+        if (err) {
+          logger.error ('error when creating exchange %j: %s', ev, err.toString ());
+        }
+        else {
+          logger.info ('created exchange %j', ev);
+        }
+      });
+
+      xchg.start (err => {
+        if (err) {
+          logger.error ('error when starting exchange %j: %s', ev, err.toString ());
+        }
+        else {
+          logger.info ('started exchange %j', ev);
+        }
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/create event %j: exchange creation failed, %j', ev, e);
+    }
   }
 
 
@@ -235,14 +255,19 @@ class Scope {
     logger.verbose ('got exchange/delete event %j', ev);
 
     const x = this._exchanges[ev.name];
+    delete this._exchanges[ev.name];
+
     if (!x) return logger.warn ('_on_exchange_delete_event: exchange [%s] does not exist', ev.name);
 
-    x.end (err => {
-      delete this._exchanges[ev.name];
-
-      if (err) logger.error ('while closing exchange %s: %s', ev.name, err.toString ());
-      logger.info ('exchange %s closed', ev.name);
-    });
+    try {
+      x.end (err => {
+        if (err) logger.error ('while closing exchange %s: %s', ev.name, err.toString ());
+        logger.info ('exchange %s closed', ev.name);
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/delete event %j: exchange deletion failed, %j', ev, e);
+    }
   }
 
 

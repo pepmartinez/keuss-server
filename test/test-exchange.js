@@ -212,7 +212,7 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback', 'exchange_h
   config_pop,
   config_reserve
 ].forEach (config => {
-  describe(`Exchanges in ${config.mode} mode`, () => {
+  describe(`Static exchanges in ${config.mode} mode`, () => {
     before (done => {
     //    Log.init (() => {
         const BaseApp = require ('../app');
@@ -281,10 +281,8 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback', 'exchange_h
             ns: 'ns1' 
           },
           dst: [{ 
-            dst: { 
-              q: 'stage_c', 
-              ns: 'ns1' 
-            } 
+            q: 'stage_c', 
+            ns: 'ns1' 
           }],
           opts: (config.mode == 'reserve' ? { reserve: true } : {}),
           cid: /.+/,
@@ -546,6 +544,286 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback', 'exchange_h
       });
     });
 
-
   });
+});
+
+describe(`REST mgmt of exchanges`, () => {
+  before (done => {
+//        Log.init (() => {
+        const BaseApp = require ('../app');
+        const Scope =   require ('../Scope');
+
+        context.config = config_pop;
+        context.scope = new Scope ();
+
+        async.series ([
+          cb => BaseApp (config_pop, context, null, (err, app) => {
+            if (err) return cb (err);
+            context.app = app;
+            context.promster = context.app.locals.Prometheus;
+            cb ();
+          }),
+          cb => {context.metrics = metrics; cb ();},
+          cb => context.scope.init (config_pop, context, cb),
+          cb => context.scope.start (cb)
+        ], done);
+//        });
+    });
+
+    after(done => {
+      context.app.locals.Prometheus.register.clear();
+      async.series ([
+        cb => context.scope.drain (cb),
+        cb => context.scope.end (cb),
+      ], done);
+    });
+
+
+    it ('lists exchanges as tree allright', done => {
+      request(context.app)
+      .get('/x')
+      .auth('test', 'toast')
+      .expect(200)
+      .end((err, res) => {
+        if (err) return done (err);
+        const body = res && res.body;
+
+        _.keys (body).should.match ([ 'e1', 'loop_a', 'loop_b', 'stage_1', 'stage_2a', 'stage_2b' ]);
+
+        _.each (body, v => {
+          v.should.have.property ('src');
+          v.should.have.property ('dst');
+          v.should.have.property ('opts');
+          v.should.have.property ('cid');
+          v.should.have.property ('pending_acks');
+          v.should.have.property ('pending_tids');
+          v.should.have.property ('wsize');
+        });
+
+        done ();
+      });
+    });
+
+
+    it ('lists exchanges as array allright', done => {
+      request(context.app)
+      .get('/x')
+      .query({array: 1})
+      .auth('test', 'toast')
+      .expect(200)
+      .end((err, res) => {
+        if (err) return done (err);
+        const body = res && res.body;
+
+        _.map (body.data, v => v.id).should.match ([ 'e1', 'loop_a', 'loop_b', 'stage_1', 'stage_2a', 'stage_2b' ]);
+
+        _.each (body.data, v => {
+          v.should.have.property ('id');
+          v.should.have.property ('src');
+          v.should.have.property ('dst');
+          v.should.have.property ('opts');
+          v.should.have.property ('cid');
+          v.should.have.property ('pending_acks');
+          v.should.have.property ('pending_tids');
+          v.should.have.property ('wsize');
+        });
+
+        done ();
+      });
+    });
+
+
+    it ('gets exchange allright', done => {
+      request(context.app)
+      .get('/x/stage_2a')
+      .auth('test', 'toast')
+      .expect(200)
+      .end((err, res) => {
+        if (err) return done (err);
+        const body = res && res.body;
+
+        body.should.match ({
+          src: { q: 'stage_b1', ns: 'ns1' },
+          dst: [ { q: 'stage_c', ns: 'ns1' } ],
+          opts: {},
+          cid: /.+/,
+          pending_acks: {},
+          pending_tids: {},
+          wsize: 1000
+        });
+
+        done ();
+      });
+    });
+
+
+    it ('fails to get exchange if does not exist', done => {
+      request(context.app)
+      .get('/x/unknown_xchg')
+      .auth('test', 'toast')
+      .expect(404)
+      .end((err, res) => {
+        if (err) return done (err);
+        res.text.should.equal ('no such exchange [unknown_xchg]');
+        done ();
+      });
+    });
+
+
+    it ('fails to create if wrong schema (missing bits)', done => {
+      request(context.app)
+      .put('/x/stage_new')
+      .auth('test', 'toast')
+      .send ({
+        src: { ns: 'N', queue: 'zon' }
+      })
+      .expect(400)
+      .end((err, res) => {
+        if (err) return done (err);
+        res.body.details.should.eql ([{
+          message: '"dst" is required',
+          path: [ 'dst' ],
+          type: 'any.required',
+          context: { label: 'dst', key: 'dst' }
+        }]);
+
+        done ();
+      });
+    });
+
+
+    it ('fails to create if src ns does not exist', done => {
+      request(context.app)
+      .put('/x/stage_new')
+      .auth('test', 'toast')
+      .send ({
+        src: { ns: 'unknown_ns', queue: 'q000' },
+        dst: [ ]
+      })
+      .expect(404)
+      .end((err, res) => {
+        if (err) return done (err);
+        res.text.should.equal ('namespace unknown_ns not defined');
+        done ();
+      });
+    });
+
+
+    it ('fails to create (deferred) if dst ns does not exist', done => {
+      request(context.app)
+      .put('/x/stage_new')
+      .auth('test', 'toast')
+      .send ({
+        src: { ns: 'ns1', queue: 'q000' },
+        dst: [ { ns: 'unknown_ns', queue: 'q001' }]
+      })
+      .expect(201)
+      .end((err, res) => {
+        if (err) return done (err);
+        async.series ([
+          cb => setTimeout (cb, 555),
+          cb => request(context.app).get('/x/stage_new').auth('test', 'toast').expect(404).end(cb)
+         ], (err, res) => {
+          done (err);
+         });
+      });
+    });
+
+
+    it ('fails to create if exchange exists already', done => {
+      request(context.app)
+      .put('/x/loop_a')
+      .auth('test', 'toast')
+      .send ({
+        src: { ns: 'ns1', queue: 'q000' },
+        dst: [ { ns: 'ns2', queue: 'q001' } ]
+      })
+      .expect(409)
+      .end((err, res) => {
+        if (err) return done (err);
+        res.text.should.equal ('exchange loop_a already exists');
+        done ();
+      });
+    });
+
+
+    it ('creates exchange allright', done => {
+      request(context.app)
+      .put('/x/stage_new')
+      .auth('test', 'toast')
+      .send ({
+        src: { ns: 'ns1', queue: 'q000' },
+        dst: [ { ns: 'ns2', queue: 'q001' } ]
+      })
+      .expect(201)
+      .end((err, res) => {
+        if (err) return done (err);
+         async.series ([
+          cb => setTimeout (cb, 555),
+          cb => request(context.app).get('/x/stage_new').auth('test', 'toast').expect(200).end(cb)
+         ], (err, res) => {
+          res[1].body.should.match ({
+            src: { q: 'q000', ns: 'ns1' },
+            dst: [ { ns: 'ns2', q: 'q001' } ],
+            opts: {},
+            cid: /.+/,
+            pending_acks: {},
+            pending_tids: {},
+            wsize: 1000
+          });
+
+          done (err);
+         });
+      });
+    });
+
+    it ('fails to delete if exchange does not exist', done => {
+      request(context.app)
+      .delete('/x/unknown-ns')
+      .auth('test', 'toast')
+      .send ({
+        src: { ns: 'ns1', queue: 'q000' },
+        dst: [ { ns: 'ns2', queue: 'q001' } ]
+      })
+      .expect(404)
+      .end((err, res) => {
+        if (err) return done (err);
+        res.text.should.equal ('exchange unknown-ns does not exist');
+        done ();
+      });
+    });
+
+    it ('deletes exchange allright', done => {
+      async.series ([
+        cb => request(context.app)
+          .put('/x/stage_transient')
+          .auth('test', 'toast')
+          .send ({
+            src: { ns: 'ns1', queue: 'q000' },
+            dst: [ { ns: 'ns2', queue: 'q001' } ]
+          })
+          .expect(201)
+          .end (cb),
+        cb => setTimeout (cb, 555),
+        cb => request(context.app).get('/x/stage_transient').auth('test', 'toast').expect(200).end(cb),
+        cb => request(context.app).delete('/x/stage_transient').auth('test', 'toast').expect(201).end(cb),
+        cb => setTimeout (cb, 555),
+        cb => request(context.app).get('/x/stage_transient').auth('test', 'toast').expect(404).end(cb),
+      ], (err, res) => {
+        if (err) return done (err);
+        res[2].body.should.match ({
+          src: { q: 'q000', ns: 'ns1' },
+          dst: [ { ns: 'ns2', q: 'q001' } ],
+          opts: {},
+          cid: /.+/,
+          pending_acks: {},
+          pending_tids: {},
+          wsize: 1000
+        });
+
+        res[5].text.should.equal ('no such exchange [stage_transient]');
+        done (err);
+      });
+    });
+
 });
