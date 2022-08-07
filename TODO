@@ -1,3 +1,5 @@
+# TODO
+
 * General
   + ability to disable stomp & amqp on config
 * REST
@@ -10,3 +12,7 @@
 * MQTT
   + add it?
 
+* Exchanges
+  + The fact that the selector execution may change the message contents can be a bit problematic. Maybe a mode in which pass only a copy for every destination?
+  + Hoops counter is added to the message as a header field... (hoops) maybe this can cause conflict with some message, maybe rename it as keuss_hops?
+  + Selectors in the example not returning boolean but an object?
