@@ -16,7 +16,6 @@ For example, giving this configuration:
 
 ```mermaid
 flowchart LR
-flowchart LR
    QA(QA)  --> QB(QB)
    QB --> QB2
 
@@ -32,8 +31,6 @@ flowchart LR
 
    QB2 --> QA
 ```
-
-[![](https://mermaid.ink/img/pako:eNpVjz0LgzAQQP9KuMmALo4ZCn7UOnRJu2YJ5qyCJiVNKEX877XEFLzp3ru33AKdUQgM-sm8u0FaR643oQkhvEh4QQnJshPhZcJLGnS5m1zovQuiSnhFD6ZOeE1jVQfXBmoDNfG68yVyE7iIXOZH8R9IYUY7y1FtPyy_mwA34IwC2LYq7KWfnACh1y31TyUdntXojAXWy-mFKUjvzP2jO2DOeoxRPcqHlfNerV-nllKw)](https://mermaid.live/edit#pako:eNpVjz0LgzAQQP9KuMmALo4ZCn7UOnRJu2YJ5qyCJiVNKEX877XEFLzp3ru33AKdUQgM-sm8u0FaR643oQkhvEh4QQnJshPhZcJLGnS5m1zovQuiSnhFD6ZOeE1jVQfXBmoDNfG68yVyE7iIXOZH8R9IYUY7y1FtPyy_mwA34IwC2LYq7KWfnACh1y31TyUdntXojAXWy-mFKUjvzP2jO2DOeoxRPcqHlfNerV-nllKw)
 
 Messages flowing from QA may return to the source due to the exchanges from `QB2` and `QF`, so processing a set of messages in `QA` may cause an exponential growth of the number of messages in the same queue.
 
@@ -65,8 +62,6 @@ flowchart LR
   style QD fill:#a21ce5,stroke:#fff,stroke-width:4px,color:#fff;
 ```
 
-[![](https://mermaid.ink/img/eyJjb2RlIjoiZmxvd2NoYXJ0IExSXG4gICBRQShRQSkgLS0gZXZhbCBCICAtLT4gUUIoUUIpXG5cbiAgIFFBIC0tIGV2YWwgQyAtLT4gUUMoUUMpXG4gICBRQSAtLSBldmFsIEQgLS0-IFFEKFFEKVxuICBzdHlsZSBRQyBmaWxsOiMzMjZjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmO1xuICBzdHlsZSBRRCBmaWxsOiNhMjFjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmOyIsIm1lcm1haWQiOnt9LCJ1cGRhdGVFZGl0b3IiOmZhbHNlfQ)](https://mermaid-js.github.io/docs/mermaid-live-editor-beta/#/edit/eyJjb2RlIjoiZmxvd2NoYXJ0IExSXG4gICBRQShRQSkgLS0gZXZhbCBCICAtLT4gUUIoUUIpXG5cbiAgIFFBIC0tIGV2YWwgQyAtLT4gUUMoUUMpXG4gICBRQSAtLSBldmFsIEQgLS0-IFFEKFFEKVxuICBzdHlsZSBRQyBmaWxsOiMzMjZjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmO1xuICBzdHlsZSBRRCBmaWxsOiNhMjFjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmOyIsIm1lcm1haWQiOnt9LCJ1cGRhdGVFZGl0b3IiOmZhbHNlfQ)
-
 In this schema, both `QC` and `QD` are queues defined in different servers, so, when a message arrives to `QA`, the exchange may propagate it to `QB` (which is in the same server), `QC` (in a remote server) and `QD` (in a different remote server), depending on the result of their eval function.
 Since the exchange is synchronous, once a message is pulled from the source and commited into the first target, it will not be rolled back if the rest of the nodes fail to push it also, so, if `QC` and `QD` are having temporal issues, the message may be lost for them.
 We can try to change eval functions to take this into account and re-insert the message into the source queue, but doing so may cause the message to be duplicated for `QB`, unless we start adding changes in our eval code to add meaningfull state info to the message before inserting it back in the source code. This may end up adding a big over-complexity in the eval functions, which is not desirable at all. Instead, we can have a much-simpler way of dealing with this kind of configuration by adding some intermediate queues:
@@ -82,7 +77,5 @@ flowchart LR
   style QC fill:#326ce5,stroke:#fff,stroke-width:4px,color:#fff;
   style QD fill:#a21ce5,stroke:#fff,stroke-width:4px,color:#fff;
 ```
-
-[![](https://mermaid.ink/img/eyJjb2RlIjoiZmxvd2NoYXJ0IExSXG4gICBRQShRQSkgLS0gZXZhbCBCICAtLT4gUUIoUUIpXG5cbiAgIFFBIC0tPiBRTENcbiAgIFFMQyAtLSBldmFsIEMgLS0-IFFDKFFDKVxuICAgUUEgLS0-IFFMRCBcbiAgIFFMRCAtLSBldmFsIEQgLS0-IFFEKFFEKVxuICBzdHlsZSBRQyBmaWxsOiMzMjZjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmO1xuICBzdHlsZSBRRCBmaWxsOiNhMjFjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmO1xuIiwibWVybWFpZCI6e30sInVwZGF0ZUVkaXRvciI6ZmFsc2V9)](https://mermaid-js.github.io/docs/mermaid-live-editor-beta/#/edit/eyJjb2RlIjoiZmxvd2NoYXJ0IExSXG4gICBRQShRQSkgLS0gZXZhbCBCICAtLT4gUUIoUUIpXG5cbiAgIFFBIC0tPiBRTENcbiAgIFFMQyAtLSBldmFsIEMgLS0-IFFDKFFDKVxuICAgUUEgLS0-IFFMRCBcbiAgIFFMRCAtLSBldmFsIEQgLS0-IFFEKFFEKVxuICBzdHlsZSBRQyBmaWxsOiMzMjZjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmO1xuICBzdHlsZSBRRCBmaWxsOiNhMjFjZTUsc3Ryb2tlOiNmZmYsc3Ryb2tlLXdpZHRoOjRweCxjb2xvcjojZmZmO1xuIiwibWVybWFpZCI6e30sInVwZGF0ZUVkaXRvciI6ZmFsc2V9)
 
 `QLC` and `QLD` here are queues in the same server as `QA`, and merely act as a temporal stage before trying to exchange with the remote servers `QC` and `QD`. This way, the exchange is not blocked in case the remote servers presents any  temporal issue.
