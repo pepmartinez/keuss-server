@@ -70,6 +70,34 @@ function get_router(config, context) {
 
 
   //////////////////////////////////////////////////////////////////////////////////////
+  function _stop_exchange (req, res) {
+    const x_name = req.params.X;
+
+    try {
+      scope.notify_stop_of_exchange ({name: x_name});
+      res.status (201).send ();
+    }
+    catch (re) {
+      res.status (re.c || 500).send (re.t || re.toString ());
+    }
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////
+  function _start_exchange (req, res) {
+    const x_name = req.params.X;
+
+    try {
+      scope.notify_start_of_exchange ({name: x_name});
+      res.status (201).send ();
+    }
+    catch (re) {
+      res.status (re.c || 500).send (re.t || re.toString ());
+    }
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////
   function _create_exchange (req, res) {
     const x_name = req.params.X;
     const config = req.body;
@@ -116,6 +144,10 @@ function get_router(config, context) {
 
   router.get    ('/',              _get_exchanges);
   router.get    ('/:x',            _get_exchange_status);
+  router.post   ('/:X/stop',       _stop_exchange);
+  router.put    ('/:X/stop',       _stop_exchange);
+  router.post   ('/:X/start',      _start_exchange);
+  router.put    ('/:X/start',      _start_exchange);
   router.post   ('/:X', [json_mw], _create_exchange);
   router.put    ('/:X', [json_mw], _create_exchange);
   router.delete ('/:X',            _delete_exchange);

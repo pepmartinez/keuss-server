@@ -77,6 +77,34 @@ class Scope {
   }
 
 
+  //////////////////////////////////////////////////
+  notify_start_of_exchange (ev) {
+    // check if existent
+    const x = this.exchange (ev.name)
+    if (!x) throw {c: 404, t: `exchange ${ev.name} does not exist`};
+
+    const ns = x._qconsumer._src.ns();
+    const sf = x._qconsumer._src._factory._signaller_factory;
+
+    sf.emit_extra (ns, 'exchanges/start', ev);
+    logger.info ('emitted event [%j] to exchanges/start on ns [%s]', ev, ns);
+  }
+
+
+  //////////////////////////////////////////////////
+  notify_stop_of_exchange (ev) {
+    // check if existent
+    const x = this.exchange (ev.name)
+    if (!x) throw {c: 404, t: `exchange ${ev.name} does not exist`};
+
+    const ns = x._qconsumer._src.ns();
+    const sf = x._qconsumer._src._factory._signaller_factory;
+
+    sf.emit_extra (ns, 'exchanges/stop', ev);
+    logger.info ('emitted event [%j] to exchanges/stop on ns [%s]', ev, ns);
+  }
+
+
   //////////////////////////////
   queue_from_ns (ns, qname, opts) {
     if (!ns.q_repo.has(qname)) {
@@ -215,6 +243,12 @@ class Scope {
 
       v.factory._signaller_factory.subscribe_extra (k, 'exchanges/delete', ev => this._on_exchange_delete_event (ev));
       logger.info ('subscribed to exchange/delete on ns [%s]', k);
+
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/start', ev => this._on_exchange_start_event (ev));
+      logger.info ('subscribed to exchange/start on ns [%s]', k);
+
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/stop', ev => this._on_exchange_stop_event (ev));
+      logger.info ('subscribed to exchange/stop on ns [%s]', k);
     });
 
     cb ();
@@ -267,6 +301,46 @@ class Scope {
     }
     catch (e) {
       logger.warn ('on exchange/delete event %j: exchange deletion failed, %j', ev, e);
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_start_event (ev) {
+    logger.verbose ('got exchange/start event %j', ev);
+
+    const x = this._exchanges[ev.name];
+
+    if (!x) return logger.warn ('_on_exchange_start_event: exchange [%s] does not exist', ev.name);
+
+    try {
+      x.start (err => {
+        if (err) logger.error ('while starting exchange %s: %s', ev.name, err.toString ());
+        logger.info ('exchange %s started', ev.name);
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/start event %j: exchange start failed, %j', ev, e);
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_stop_event (ev) {
+    logger.verbose ('got exchange/stop event %j', ev);
+
+    const x = this._exchanges[ev.name];
+
+    if (!x) return logger.warn ('_on_exchange_stop_event: exchange [%s] does not exist', ev.name);
+
+    try {
+      x.end (err => {
+        if (err) logger.error ('while stopping exchange %s: %s', ev.name, err.toString ());
+        logger.info ('exchange %s stopped', ev.name);
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/stop event %j: exchange stop failed, %j', ev, e);
     }
   }
 
