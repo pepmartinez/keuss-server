@@ -13,6 +13,4 @@
   + add it?
 
 * Exchanges
-  + The fact that the selector execution may change the message contents can be a bit problematic. Maybe a mode in which pass only a copy for every destination?
-  + Hoops counter is added to the message as a header field... (hoops) maybe this can cause conflict with some message, maybe rename it as keuss_hops?
-  + Selectors in the example not returning boolean but an object?
+  + Reviewing the documentacion of keuss, I cannot find where we documented the `mature`, `delay` and `tries` properties for the push() operation. Ill like to put a link to that from the exchange doc
