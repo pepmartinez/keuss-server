@@ -17,6 +17,7 @@ module.exports = {
         'usage/stomp',
         'usage/amqp10',
         'usage/clustering',
+        'usage/exchanges',
         'usage/monitoring',
         'usage/gui',
       ]
