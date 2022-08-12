@@ -21,7 +21,7 @@ var config = {
     mongo: {
       factory: 'mongo-capped',
       config: {
-        mongo_url: '{signal.mongo.url:mongodb://localhost/keuss_signal}',
+        url: '{signal.mongo.url:mongodb://localhost/keuss_signal}',
         mongo_opts: {},
         channel: '{signal.mongo.channel:default}',
       }
