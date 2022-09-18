@@ -1,43 +1,174 @@
 ---
 id: exchanges
-title: Exchanges API
-sidebar_label: Exchanges API
+title: Exchanges
+sidebar_label: Exchanges
 ---
 
-## Exchanges stack
+`keuss-server` provides the ability to define a graph interconnecting queues with consumer loops, where:
 
-The included Exchanges stack supports the definition of Exchange queues with the following configuration parameters:
+* each consumer loop read from exactly one `src` queue
+* each consumer loop pushes in sequence to zero or more `dst` queues
+* each push into a `dst` queue is controlled by a selector function: it controls whether the push is to be done or not, and also can modify the message
 
-* Exchanges are defined as one or several configurations specifying one source queue and one or several exchange destinations
-* Each exchange source `src` is defined by a queue namespace `ns` and a queue name  `queue`
-* Exchange destination `dst` is defined as an array of objects defined by a namespace `ns`, a queue name `queue` and an (optional) evaluation function `selector`, this function will indicate, with it's execution result, if a particular message should be passed to the exchange destination queue
-* An additional `max_hops` safeguard parameter may be set as a limit for the maximum number of hops that a message in an exchange may perform to avoid having loops in the definition that may end saturating the queues.
+Therefore, an exchange is comprised of a `src` queue, a consumer loop, and  set of `dst` queues with their selectors. 
+
+Zero or more exchanges can be defined either by configuration ro by REST API (although in the latter case they are not persisted yet); 
+exchanges can use any queue in any namespace defined to `keuss-server`; so, exchanges can create a mesh or graph interconnecting queues on various locations, using different backend, stats and signal technologies
+
+## Exchange spec
+A more formal js-like spec would be:
+
+```
+{
+  consumer: {
+    parallel: <int, optional, defaults to 1>
+    wsize:    <int, optional, defaults to 1>
+    reserve:  <bool, optional, defaults to false>
+  },
+  src: {
+    ns: <string>
+    queue: <string>
+  },
+  dst: [
+    {
+      ns: <string>
+      queue: <string>
+      selector: <optional, string|function, no default>
+    }[0..n]
+  ]
+}
+```
+
+* `consumer`
+  * `parallel`: how many loops in parallel an exchange runs, one by default
+  * `wsize`: maximum number of in-flight elements (ie, popped but not yet pushed/committed) allowed among all loops
+  * `reserve`: if true, uses `reserve` to get elements from `src` and then `commit` after all pushes have been done (or `rollback` if an error arose); 
+    if false, uses `pop` to get elements
+* `src`
+  * `ns`: namespace of the source queue
+  * `queue`: name of the source queue; if non-existent it will be created
+* `dst`: array of zero or more destination queues, each of them with the following values:
+  * `ns`: namespace of the destination queue
+  * `queue`: name of the destination queue; if non-existent it will be created
+  * `selector`: function to define whether a popped element is pushed in to this destination queue (more information below)
+
+
+## Loop execution
+Here is a pseudocode (simplified) definition of the exchange loop:
+```
+forever 
+  if reserve
+    elem = reserve_elem_from_src_queue
+  else
+    elem = pop_elem_from_src_queue
+
+  if too_many_hops(elem)
+    push_elem_to_toomanyhopsqueue
+    continue
+
+  for each dst
+    eval = dst.selector(elem)
+    if eval
+      push_elem_in_dst
+      if error break
+    
+  if error_in_dst_loop
+    if reserve
+      rollback_elem_in_src_queue
+  else if elem_not_pushed_anywhere
+    push_elem_to_noroutequeue
+```
+As noted before, one instance of this loop (or more precisely, as many as `consumer.parallel`) will run per exchange, per server in the cluster
+
+## The selector
+There is an optiona selector function per destination; it can take the following values:
+* null, not defined: it will take the semantics of 'pass': the message will always be pushed to the destination
+* a js function with the prototype `fn(env) -> ret`
+* a string parseable with node.js `vm` module into a js function with the prototype `fn(env) -> ret`
+
+The selector gets called with one `env` object parameter that will contain 2 keys:
+* `msg`: the message being looped. The selector recevies the actual message, not a copy, 
+  so it *can* modify the message in mid-loop
+* `state`: an object to keep state along each cycle of the loop: it is set to `{}` after each message is popped,
+  and it's just kept and passed to all destinations' selectors in sequence. Selectors have no limitations about
+  what can be done with the state
+
+The selector is then expected to return a single value: 
+* a *truthy* value will indicate the message gets pushed to the destination
+  * if the return value is a non-empty object, 3 optional keys are taken into consideration to modify how the message is
+    pushed:
+    * `mature`: specifies a mature time for the push() keuss opertion 
+    * `delay`:  specifies a delay for the push() keuss opertion 
+    * `tries`:  specifies a number-of-tries for the push() keuss opertion 
+* a *falsey* values will indicate the message does not get pushed to the destination
+ 
+### Examples
+ Defining a selector function like:
+```js
+  exchanges: {
+    x1: {
+      src: {...}
+      dst: [{
+        {
+          ns: 'ns1',
+          queue: 'one_dest',
+          selector: env => {return {delay: 1}},
+        },
+        ...
+      }]
+    }
+  }
+```
+will mean that any message arriving to the exchange's src queue will be pushed to the destination queue, and will be
+done so with a delay of 1 second, as specified by the `delay` return parameter
+
+This could be also written as a string, which would be json-compatible:
+
+```js
+  exchanges: {
+    x1: {
+      src: {...}
+      dst: [{
+        {
+          ns: 'ns1',
+          queue: 'one_dest',
+          selector: 'env => {return {delay: 1}}',
+        },
+        ...
+      }]
+    }
+  }
+```
+
+A more complete example, where the selector actually checks some of the message's headers:
+```js
+  exchanges: {
+    x1: {
+      src: {...}
+      dst: [{
+        {
+          ns: 'ns1',
+          queue: 'one_dest',
+          selector: env => (env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-/)),
+        },
+        ...
+      }]
+    }
+  }
+```
+messages into the exchange's src will be copied into queue `ns1.one_dest` if there is a header named `aaa`, whose value starts with `yes-`
+
+## A note on loops on the exchange graph
+As already mentioned, it is possible to create graphs of any shape with exchanges; this means that infinite loops may appear, if the selector functions involved do not take this into consideration
+
+To add a safeguard against infinite loops, an additional `main.max_hops` config parameter may be set as a limit for the maximum number of hops that a message may perform to avoid saturating the queues.
+
 For example, giving this configuration:
 
 [![](https://mermaid.ink/img/pako:eNpVjj0LgzAQQP_KcZMBXRwzFPyodeiSds0STKyCJiVNKEX877XECL3p3rs33IKdkQop9pN5d4OwDq43rgGAFQkrCECWnYCVCStJ0OVucq73LogqYRX5M3XCahKrOrg2UBuoidedL5GbwEXkMj8EHIMpzsrOYpTb_8vvwtENalYc6bZK1Qs_OY5cr1vqn1I4dZajMxZpL6aXSlF4Z-4f3SF11qsY1aN4WDHv1foFe5lRpg)](https://mermaid.live/edit#pako:eNpVjj0LgzAQQP_KcZMBXRwzFPyodeiSds0STKyCJiVNKEX877XECL3p3rs33IKdkQop9pN5d4OwDq43rgGAFQkrCECWnYCVCStJ0OVucq73LogqYRX5M3XCahKrOrg2UBuoidedL5GbwEXkMj8EHIMpzsrOYpTb_8vvwtENalYc6bZK1Qs_OY5cr1vqn1I4dZajMxZpL6aXSlF4Z-4f3SF11qsY1aN4WDHv1foFe5lRpg)
 
-Messages flowing from QA may return to the source due to the exchanges from `QB2` and `QF`, so processing a set of messages in `QA` may cause an exponential growth of the number of messages in the same queue.
+Messages flowing from `QA` may return to the source due to the exchanges from `QB2` and `QF`, so processing a set of messages in `QA` may cause an exponential growth of the number of messages in the same queue.
 
-### Selector Evaluation
-
-The selector evaluation is performed over the source queue by:
-
-* Extracting one message from the source queue
-* If a selector is defined for a particular destination, the message is passed as argument to the selector defined for each destination queue.
-
-The result of evaluating the selector function can be:
-
-* A boolean value: The message will be pushed to the destination queue only if the result is `true`.
-* An object: The message is passed to the correspondent destination queue, and the properties of the returned object may be applied to the destination queue push (this applies to the `mature`, `delay` and `tries` properties)
- For example, defining a selector function like:
-
- ```js
-  env => {return {delay: 1}}
- ```
-
-That will mean that any message arriving to the exchange will be pushed to the destination queue with a delay of 1 second, since the `delay` parameter is one of the keuss `push` operation.
-
-Notice that the evaluation of the different destination queues selectors is performed in a synchronous loop, in which the evaluation order is defined by the exchange configuration definition order. Once a message is reserved from the source, it is passed to the exchange evaluation loop, and each of the selectors receives the message in its current state. That means that as the message is passed to the selectors, they can change its values (or add other properties, for the case) so the next evaluated selectors in the configuration will receive this altered copy of the original message (and may choose to pass it to their destinations, with the altered values).
 
 ### Exchange Stats
 

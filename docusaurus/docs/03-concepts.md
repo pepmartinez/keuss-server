@@ -29,6 +29,12 @@ Signallers provide the needed clustering node intercommunication; all of Keuss' 
 
 Per-cluster Stats are also provided by Keuss; any of Keuss Stats providers can be used, but use of `mem` provider would not provide actual per-cluster stats in a multi-node cluster
 
+## Exchange
+
+A graph interconnecting queues -even on different namespaces and using different backends in different datacenters- can be defined by means of exchanges; one exchange is basically a consumer loop acting (popping) in a 'source' queue, and inserting (pushing) on zero or more queues, where the push on each queue is conditional and may modify the message in the process
+
+Exchanges can be created by config, or managed via REST; they are created in all nodes of a cluster, too, so they are fully distributed
+
 ## How all fits together
 
 1. One or more Stats objects are defined, each one with its own configuration
@@ -39,6 +45,8 @@ Per-cluster Stats are also provided by Keuss; any of Keuss Stats providers can b
  * One of the Signallers defined above
 4. One REST server is created on top of the set of queue namespaces
 5. One STOMP server is created on top of the set of queue namespaces
+6. One AMQP1.0 server is created on top of the set of queue namespaces
+7. zero or more exchanges can be added over the full set of queues on all namespaces
 
 ## Configuration
 
@@ -192,6 +200,31 @@ var config = {
         url: '{data.bucket-mongo-safe.url:mongodb://localhost/bucket_mongo_data_safe}',
         stats: 'mongo',
         signaller: 'mongo'
+      }
+    },
+  },
+  exchanges: {
+    x1: {
+      src: {
+        ns: 'N',
+        queue: 'one_source',
+      },
+      dst: [
+        {
+          ns: 'ns1',
+          queue: 'one_dest',
+          selector: env => (env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-/)),
+        },
+        {
+          ns: 'ns1',
+          queue: 'other_dest',
+          selector: `env => (env.msg.hdrs['aaa'] && env.msg.hdrs['aaa'].match (/^yes-already/))`
+        }
+      ],
+      consumer: {
+        parallel: 2,
+        wsize: 11,
+        reserve: true
       }
     },
   }

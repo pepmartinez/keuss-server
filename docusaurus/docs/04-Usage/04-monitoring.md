@@ -6,7 +6,7 @@ sidebar_label: Monitoring
 
 ## Logging
 
-Keuss-server uses [winston-log-space](https://github.com/pepmartinez/winston-log-space) for logging, and by default it logs to stdout only, on a `info` level. See `winston-log-space` for how to configure and tailor logging
+`keuss-server` uses [winston-log-space](https://github.com/pepmartinez/winston-log-space) for logging, and by default it logs to stdout only, on a `info` level. See `winston-log-space` for how to configure and tailor logging
 
 ## Prometheus metrics
 
@@ -25,6 +25,15 @@ Several metrics are provided at the `/metrics` endpoint:
   * `stomp_pending_acks`: gauge, total number of messages pending of ack. No labels
   * `stomp_pending_tids`: gauge, idle consumers. No labels
   * `stomp_wsize`: gauge, total window size on all consumers for all subscriptions. No labels
+* AMQP metrics:
+  * `amqp_connections`: gauge, active amqp connections. No labels
+  * `amqp_senders`: gauge, active amqp senders. No labels
+  * `amqp_receivers`: gauge, active amqp receivers. No labels
+  * `amqp_pending_acks`: gauge, in-flight messages, pending an ack
+  * `amqp_pending_tids`: gauge, idle consumers
+  * `amqp_wsize`: gauge, total ack window size across all senders
+* Exchanges metrics:
+  * `keuss_exchange_hops`: Histogram on loop processing time. Uses labels 'exchange' and 'status'
 * Keuss-reflected metrics: Those are a reflection of the info maintained by keuss' own stats and therefore will be the same on all servers in a cluster if a non-local stats provider (such as mongodb or redis) is used:
   * `q_global_size`: gauge, size of queue, only available elements. Use labels 'ns' (namespace), 'q' (queue name)
   * `q_global_schedSize`: gauge, elements in queue due in the future. Use labels 'ns' (namespace), 'q' (queue name)

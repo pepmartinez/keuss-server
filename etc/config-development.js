@@ -143,7 +143,7 @@ var config = {
           queue: 'loop_1',
           selector: env => {return {delay: 1}},
         },
-	{
+	      {
           ns: 'ns1',
           queue: 'loop_1',
           selector: env => {return {delay: 2}},
@@ -164,7 +164,7 @@ var config = {
           queue: 'loop_0',
           selector: env => {return {delay: 1}},
         },
-	{
+	      {
           ns: 'N',
           queue: 'loop_0',
           selector: env => {return {delay: 2}},
