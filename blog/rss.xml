@@ -15,7 +15,7 @@
             <pubDate>Thu, 19 May 2022 00:00:00 GMT</pubDate>
             <description><![CDATA[We have added support for AMQP 1.0 into Keuss Server, using Rhea.]]></description>
             <content:encoded><![CDATA[<p>We have added support for AMQP 1.0 into Keuss Server, using <a href="https://www.npmjs.com/package/rhea" target="_blank" rel="noopener noreferrer">Rhea</a>.
-You can find the details in the <a href="/keuss-server/blog/docs/usage/amqp10">usage documentation</a> or play with the examples provided in the <code>/test</code> folder.</p>]]></content:encoded>
+You can find the details in the <a href="/keuss-server/blog/docs/Usage/amqp10">usage documentation</a> or play with the examples provided in the <code>/test</code> folder.</p>]]></content:encoded>
             <category>keuss-server</category>
             <category>amqp</category>
         </item>
