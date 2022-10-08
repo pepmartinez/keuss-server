@@ -1,5 +1,5 @@
-# docker build -t pepmartinez/keuss-server:1.7.0 .
-# docker push pepmartinez/keuss-server:1.7.0
+# docker build -t pepmartinez/keuss-server:2.0.0 .
+# docker push pepmartinez/keuss-server:2.0.0
 
 FROM node:14.18.2-alpine
 
@@ -9,5 +9,5 @@ RUN npm install --only=production
 
 COPY . .
 
-EXPOSE 3444 61613
+EXPOSE 3444 5672 61613
 CMD [ "node", "index.js" ]
