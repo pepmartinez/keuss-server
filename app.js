@@ -5,6 +5,7 @@ var Log =        require ('winston-log-space');
 var promster =   require ('@promster/express');
 
 var routes_q =   require ('./routes/q');
+var routes_x =   require ('./routes/x');
 
 
 function app (config, context, extra_init, cb) {
@@ -39,6 +40,7 @@ function app (config, context, extra_init, cb) {
 
   app.use ('/public', express.static (path.join (__dirname, 'public')));
   app.use ('/q', routes_q (config, context));
+  app.use ('/x', routes_x (config, context));
 
   // main page
   app.get ('/', (req, res) => res.render ('index', {title: 'Job Queues'}));

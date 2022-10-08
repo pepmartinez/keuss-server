@@ -6,6 +6,9 @@ var Log =   require ('winston-log-space');
 var cconf = new CC();
 
 var defaults = {
+  main: {
+    max_hops: 11
+  },
   http: {
     port: 3444,
     users: {}
@@ -29,12 +32,13 @@ var defaults = {
       }
     }
   },
-  namespaces: {}
+  namespaces: {},
+  exchanges: {}
 };
 
 
 function _create_q_metric (context, id, help) {
-  let the_metric = context.promster.register.getSingleMetric('keuss_' + id);
+  const the_metric = context.promster.register.getSingleMetric('keuss_' + id);
 
   if (the_metric) {
     context.metrics[id] = the_metric;
@@ -48,17 +52,40 @@ function _create_q_metric (context, id, help) {
   }
 }
 
-function _create_metrics (context, cb) {
-  // create extra metrics
-  context.metrics = {};
+
+function _create_exchange_metrics (context) {
+  const exchange_hops = context.promster.register.getSingleMetric('keuss_exchange_hops');
+
+  if (exchange_hops) {
+    context.metrics['keuss_exchange_hops'] = exchange_hops;
+  }
+  else {
+    context.metrics['keuss_exchange_hops'] = new context.promster.Histogram ({
+      name: 'keuss_exchange_hops',
+      help: 'hops in exchanges, from src queue to dst queues',
+      labelNames: ['exchange', 'status'],
+      buckets: [0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000]
+    });
+  }
+}
+
+
+function _create_q_metrics (context) {
   _create_q_metric (context, 'q_push',     'counters on queue insertion through server');
   _create_q_metric (context, 'q_pop',      'counters on queue pop through server');
   _create_q_metric (context, 'q_reserve',  'counters on queue reserve through server');
   _create_q_metric (context, 'q_commit',   'counters on queue commit through server');
   _create_q_metric (context, 'q_rollback', 'counters on queue rollback through server');
+}
 
+
+function _create_metrics (context, cb) {
+  context.metrics = {};
+  _create_q_metrics (context);
+  _create_exchange_metrics (context);
   cb ();
 }
+
 
 
 cconf
@@ -69,7 +96,7 @@ cconf
   .file (__dirname + '/etc/config-{NODE_ENV:development}.js', {ignore_missing: true})
   .env  ({prefix: 'KS_'})
   .args ()
-  .done (function (err, config) {
+  .done ((err, config) => {
     if (err) {
       console.error (err);
       process.exit (1);
@@ -78,26 +105,27 @@ cconf
     Log.init (err => {
       if (err) return console.error (err);
 
-      var logger = Log.logger ('main');
+      const logger = Log.logger ('main');
 
-      var BaseApp = require ('./app');
-      var Stomp =   require ('./stomp');
-      var Amqp =   require ('./amqp');
-      var Scope =   require ('./Scope');
+      const BaseApp = require ('./app');
+      const Stomp =   require ('./stomp');
+      const Amqp =    require ('./amqp');
+      const Scope =   require ('./Scope');
 
-      var context = {};
+      const context = {};
+      context.config = config;
       context.scope = new Scope ();
 
       async.series ([
-        cb => context.scope.init (config, context, cb),
         cb => BaseApp (config, context, null, (err, app) => {
           if (err) return cb (err);
           context.app = app;
           context.promster = context.app.locals.Prometheus;
           cb ();
         }),
-        cb => context.scope.start (cb),
         cb => _create_metrics (context, cb),
+        cb => context.scope.init (config, context, cb),
+        cb => context.scope.start (cb),
         cb => {
           // init stomp server
           context.stomp_server = new Stomp (config, context);
@@ -113,7 +141,7 @@ cconf
         cb => {
           // init http/rest server
           context.server = require('http-shutdown')(http.createServer (context.app));
-          var port = config.http.port || 3444;
+          const port = config.http.port || 3444;
 
           context.server.listen (port, err => {
             if (err) return cb (err);

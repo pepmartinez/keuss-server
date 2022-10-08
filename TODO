@@ -1,4 +1,7 @@
+# TODO
+
 * General
+  + ability to disable stomp & amqp on config
 * REST
 * STOMP
   + add auth
@@ -9,3 +12,5 @@
 * MQTT
   + add it?
 
+* Exchanges
+  + Reviewing the documentacion of keuss, I cannot find where we documented the `mature`, `delay` and `tries` properties for the push() operation. Ill like to put a link to that from the exchange doc

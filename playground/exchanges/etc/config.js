@@ -2,8 +2,7 @@
 var config = {
   http: {
     users: {
-      'test1': 'test1',
-      'usr1': 'pass1'
+      'test': 'test'
     }
   },
   
@@ -11,8 +10,8 @@ var config = {
     mongo: {
       factory: 'mongo',
       config: {
-        url:  '{stats.mongo.url:mongodb://localhost/keuss_stats}',
-        coll: '{stats.mongo.coll:keuss_stats}'
+        url:  'mongodb://mongo/keuss_stats',
+        coll: 'keuss_stats'
       }
     }
   },
@@ -21,9 +20,10 @@ var config = {
     mongo: {
       factory: 'mongo-capped',
       config: {
-        url: '{signal.mongo.url:mongodb://localhost/keuss_signal}',
+        mongo_url: 'mongodb://mongo/keuss_signal',
+        url: 'mongodb://mongo/keuss_signal',
         mongo_opts: {},
-        channel: '{signal.mongo.channel:default}',
+        channel: 'default',
       }
     }
   },
@@ -33,7 +33,7 @@ var config = {
       factory: 'mongo',
       disable: false,
       config: {
-        url: '{data.mongo.url:mongodb://localhost/keuss}',
+        url: 'mongodb://mongo/keuss',
         stats: 'mongo',
         signaller: 'mongo'
       }
@@ -42,7 +42,7 @@ var config = {
       factory: 'mongo',
       disable: false,
       config: {
-        url: '{data.mongo.url:mongodb://localhost/ns1_data}',
+        url: 'mongodb://mongo/ns1_data',
         stats: 'mongo',
         signaller: 'mongo'
       }
@@ -53,7 +53,7 @@ var config = {
       config: {
         redis: {
           Redis: {
-            host: '{data.redis.host:localhost}',
+            host: 'redis',
           }
         },
         stats: 'mongo',
@@ -66,27 +66,18 @@ var config = {
       config: {
         redis: {
           Redis: {
-            host: '{data.redis.host:localhost}',
+            host: 'redis',
           }
         },
         stats: 'mongo',
         signaller: 'mongo'
       }
     },
-    fastbuckets: {
-      factory: 'bucket-mongo',
-      disable: false,
-      config: {
-        url: '{data.bucket-mongo.url:mongodb://localhost/bucket_mongo_data}',
-        stats: 'mongo',
-        signaller: 'mongo'
-      }
-    },
-    safebuckets: {
+    buckets: {
       factory: 'bucket-mongo-safe',
       disable: false,
       config: {
-        url: '{data.bucket-mongo-safe.url:mongodb://localhost/bucket_mongo_data_safe}',
+        url: 'mongodb://mongo/bucket_mongo_data_safe',
         stats: 'mongo',
         signaller: 'mongo'
       }
@@ -143,7 +134,7 @@ var config = {
           queue: 'loop_1',
           selector: env => {return {delay: 1}},
         },
-	      {
+	    {
           ns: 'ns1',
           queue: 'loop_1',
           selector: env => {return {delay: 2}},
@@ -164,8 +155,50 @@ var config = {
           queue: 'loop_0',
           selector: env => {return {delay: 1}},
         },
-	      {
+	    {
           ns: 'N',
+          queue: 'loop_0',
+          selector: env => {return {delay: 2}},
+        },
+      ],
+      consumer: {
+        reserve: true
+      }
+    },
+    loop_c :{
+      src: {
+        ns: 'buckets',
+        queue: 'loop_0',
+      },
+      dst: [
+        {
+          ns: 'buckets',
+          queue: 'loop_1',
+          selector: env => {return {delay: 1}},
+        },
+	    {
+          ns: 'buckets',
+          queue: 'loop_1',
+          selector: env => {return {delay: 2}},
+        }
+      ],
+      consumer: {
+        reserve: true
+      }
+    },
+    loop_d :{
+      src: {
+        ns: 'buckets',
+        queue: 'loop_1',
+      },
+      dst: [
+        {
+          ns: 'buckets',
+          queue: 'loop_0',
+          selector: env => {return {delay: 1}},
+        },
+	    {
+          ns: 'buckets',
           queue: 'loop_0',
           selector: env => {return {delay: 2}},
         },
@@ -176,7 +209,7 @@ var config = {
     }
   },
   main: {
-    max_hops: 11
+    max_hops: 23
   }
 };
 

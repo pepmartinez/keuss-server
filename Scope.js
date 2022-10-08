@@ -1,9 +1,11 @@
-var async = require ('async');
-var _ =     require ('lodash');
-var util =  require ('util');
-var Log =   require ('winston-log-space');
+const async = require ('async');
+const _ =     require ('lodash');
+const util =  require ('util');
+const Log =   require ('winston-log-space');
 
-var logger = Log.logger ('scope');
+const Exchange = require ('./lib/exchange/Exchange');
+
+const logger = Log.logger ('scope');
 
 class Scope {
   //////////////////////////////
@@ -11,6 +13,7 @@ class Scope {
     this._stats_providers = {};
     this._signal_providers = {};
     this._q_namespaces = {};
+    this._exchanges = {};
   }
 
 
@@ -21,8 +24,114 @@ class Scope {
 
 
   //////////////////////////////
+  exchanges () {
+    return this._exchanges;
+  }
+
+
+  //////////////////////////////
   namespace (t) {
     return this._q_namespaces[t];
+  }
+
+
+  //////////////////////////////
+  exchange (t) {
+    return this._exchanges[t];
+  }
+
+
+  //////////////////////////////////////////////////
+  notify_creation_of_exchange (ev) {
+    // check if existent
+    if (this.exchange (ev.name)) throw {c: 409, t: `exchange ${ev.name} already exists`};
+
+    // validate decl
+    const v_error = Exchange.validate_config (ev.decl);
+    if (v_error) throw {c: 400, t: v_error};
+
+    // get ns of src queue
+    const ns = ev.decl.src.ns;
+    const src_ns = this.namespace (ns);
+
+    // must exist
+    if (!src_ns) throw {c: 404, t: `namespace ${ns} not defined`};
+
+    // emit creation on the ns of the src queue; actual creation happens at the event's handler
+    src_ns.factory._signaller_factory.emit_extra (ns, 'exchanges/create', ev);
+    logger.info ('emitted event [%j] to exchanges/create on ns [%s]', ev, ns);
+  }
+
+
+  //////////////////////////////////////////////////
+  notify_deletion_of_exchange (ev) {
+    // check if existent
+    const x = this.exchange (ev.name)
+    if (!x) throw {c: 404, t: `exchange ${ev.name} does not exist`};
+
+    const ns = x._qconsumer._src.ns();
+    const sf = x._qconsumer._src._factory._signaller_factory;
+
+    sf.emit_extra (ns, 'exchanges/delete', ev);
+    logger.info ('emitted event [%j] to exchanges/delete on ns [%s]', ev, ns);
+  }
+
+
+  //////////////////////////////////////////////////
+  notify_start_of_exchange (ev) {
+    // check if existent
+    const x = this.exchange (ev.name)
+    if (!x) throw {c: 404, t: `exchange ${ev.name} does not exist`};
+
+    const ns = x._qconsumer._src.ns();
+    const sf = x._qconsumer._src._factory._signaller_factory;
+
+    sf.emit_extra (ns, 'exchanges/start', ev);
+    logger.info ('emitted event [%j] to exchanges/start on ns [%s]', ev, ns);
+  }
+
+
+  //////////////////////////////////////////////////
+  notify_stop_of_exchange (ev) {
+    // check if existent
+    const x = this.exchange (ev.name)
+    if (!x) throw {c: 404, t: `exchange ${ev.name} does not exist`};
+
+    const ns = x._qconsumer._src.ns();
+    const sf = x._qconsumer._src._factory._signaller_factory;
+
+    sf.emit_extra (ns, 'exchanges/stop', ev);
+    logger.info ('emitted event [%j] to exchanges/stop on ns [%s]', ev, ns);
+  }
+
+
+  //////////////////////////////
+  queue_from_ns (ns, qname, opts) {
+    if (!ns.q_repo.has(qname)) {
+      ns.q_repo.set(qname, ns.factory.queue(qname, opts || {}));
+    }
+
+    return ns.q_repo.get(qname);
+  }
+
+
+  //////////////////////////////
+  create_exchange (name, exchange_decl, cb) {
+    // ensure it does not exist
+    if (this._exchanges[name]) {
+      logger.warn ('create_exchange: exchange [%s] does exist, ignoring creation', ev.name);
+      return cb ();
+    }
+
+    if (exchange_decl.disable) {
+      logger.info ('exchange [%s] disabled, ignored', name);
+      return cb ();
+    }
+
+    logger.info ('creating exchange [%s]', name);
+    const ex = new Exchange (name, exchange_decl, this._context);
+    this._exchanges[name] = ex;
+    ex.init (cb);
   }
 
 
@@ -95,7 +204,7 @@ class Scope {
 
         bk_module (bk_opts, (err, factory) => {
           if (err) {
-            logger.info ('error initializing queue namespace [%s]: %j', namespace_name, err);
+            logger.info ('error initializing queue namespace [%s]: %s', namespace_name, err.toString ());
             return cb (err);
           }
 
@@ -109,6 +218,130 @@ class Scope {
     tasks.push (cb => this.refresh (cb));
 
     async.series (tasks, cb);
+  }
+
+
+  //////////////////////////////
+  _init_exchanges (config, cb) {
+    const tasks = [];
+
+    _.forEach (config.exchanges, (exchange, exchange_name) => {
+      tasks.push (cb => this.create_exchange (exchange_name, exchange, cb));
+    });
+
+    tasks.push (cb => this.refresh (cb));
+
+    async.series (tasks, cb);
+  }
+
+
+  //////////////////////////////////////////////////
+  _subscribe_to_exchanges (cb) {
+    _.each (this._q_namespaces, (v, k) => {
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/create', ev => this._on_exchange_create_event (ev));
+      logger.info ('subscribed to exchange/create on ns [%s]', k);
+
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/delete', ev => this._on_exchange_delete_event (ev));
+      logger.info ('subscribed to exchange/delete on ns [%s]', k);
+
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/start', ev => this._on_exchange_start_event (ev));
+      logger.info ('subscribed to exchange/start on ns [%s]', k);
+
+      v.factory._signaller_factory.subscribe_extra (k, 'exchanges/stop', ev => this._on_exchange_stop_event (ev));
+      logger.info ('subscribed to exchange/stop on ns [%s]', k);
+    });
+
+    cb ();
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_create_event (ev) {
+    logger.verbose ('got exchange/create event %j', ev);
+
+    try {
+      this.create_exchange (ev.name, ev.decl, (err, xchg) => {
+        if (err) {
+          logger.error ('error when creating exchange %j: %s', ev, err.toString ());
+        }
+        else {
+          logger.info ('created exchange %j', ev);
+        }
+      });
+
+      xchg.start (err => {
+        if (err) {
+          logger.error ('error when starting exchange %j: %s', ev, err.toString ());
+        }
+        else {
+          logger.info ('started exchange %j', ev);
+        }
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/create event %j: exchange creation failed, %j', ev, e);
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_delete_event (ev) {
+    logger.verbose ('got exchange/delete event %j', ev);
+
+    const x = this._exchanges[ev.name];
+    delete this._exchanges[ev.name];
+
+    if (!x) return logger.warn ('_on_exchange_delete_event: exchange [%s] does not exist', ev.name);
+
+    try {
+      x.end (err => {
+        if (err) logger.error ('while closing exchange %s: %s', ev.name, err.toString ());
+        logger.info ('exchange %s closed', ev.name);
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/delete event %j: exchange deletion failed, %j', ev, e);
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_start_event (ev) {
+    logger.verbose ('got exchange/start event %j', ev);
+
+    const x = this._exchanges[ev.name];
+
+    if (!x) return logger.warn ('_on_exchange_start_event: exchange [%s] does not exist', ev.name);
+
+    try {
+      x.start (err => {
+        if (err) logger.error ('while starting exchange %s: %s', ev.name, err.toString ());
+        logger.info ('exchange %s started', ev.name);
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/start event %j: exchange start failed, %j', ev, e);
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _on_exchange_stop_event (ev) {
+    logger.verbose ('got exchange/stop event %j', ev);
+
+    const x = this._exchanges[ev.name];
+
+    if (!x) return logger.warn ('_on_exchange_stop_event: exchange [%s] does not exist', ev.name);
+
+    try {
+      x.end (err => {
+        if (err) logger.error ('while stopping exchange %s: %s', ev.name, err.toString ());
+        logger.info ('exchange %s stopped', ev.name);
+      });
+    }
+    catch (e) {
+      logger.warn ('on exchange/stop event %j: exchange stop failed, %j', ev, e);
+    }
   }
 
 
@@ -127,6 +360,7 @@ class Scope {
       });
     }
   }
+
 
   //////////////////////////////////////////////////
   _create_metric_counter_q_global (id, help) {
@@ -163,7 +397,6 @@ class Scope {
 
   //////////////////////////////////////////////////
   _refresh_q_global_metrics_for_queue (q, cb) {
-
     async.parallel ({
       size:          cb => q.size (cb),
       totalSize:     cb => q.totalSize (cb),
@@ -214,10 +447,30 @@ class Scope {
     this._config = config;
 
     async.series ([
-      cb => this._init_stats_providers  (config, cb),
-      cb => this._init_signal_providers (config, cb),
-      cb => this._init_backends         (config, cb),
+      cb => this._init_stats_providers   (config, cb),
+      cb => this._init_signal_providers  (config, cb),
+      cb => this._init_backends          (config, cb),
+      cb => this._init_exchanges         (config, cb),
+      cb => this._subscribe_to_exchanges (cb),
     ], cb);
+  }
+
+
+  //////////////////////////////
+  _start_exchanges (cb) {
+    var tasks = [];
+
+    _.each (this._exchanges, (v, k) => {
+      tasks.push (cb => {
+        logger.info (`starting exchange ${k}`);
+        v.start (cb);
+      });
+    });
+
+    async.parallel (tasks, err => {
+      logger.info ('all exchanges started');
+      cb (err);
+    });
   }
 
 
@@ -228,31 +481,61 @@ class Scope {
         this._create_metrics_g_global ();
         this._rqgm_timer = setInterval (() => this._refresh_q_global_metrics (), this._config.refresh_metrics_interval || 2000);
         cb ();
-      }
+      },
+      cb => this._start_exchanges (cb),
     ], cb);
   }
 
 
   //////////////////////////////
   end (cb) {
+    clearInterval (this._rqgm_timer);
+
+    async.series ([
+      cb => this._end_exchanges (cb),
+      cb => this._end_namespaces (cb),
+    ], cb);
+  }
+
+
+  //////////////////////////////
+  _end_namespaces (cb) {
     var tasks = [];
 
     _.each (this._q_namespaces, (v, k) => {
-      tasks.push ((cb) => {
-        logger.info (`closing backend ${k}`)
+      tasks.push (cb => {
+        logger.info (`closing backend ${k}`);
+
         v.q_repo.forEach ((q, qname) => {
           logger.info (`cancelling queue ${qname}`);
           // TODO drain queues
           q.cancel();
         });
+
         v.factory.close (cb);
       });
     });
 
-    clearInterval (this._rqgm_timer);
-
-    async.parallel (tasks, (err) => {
+    async.parallel (tasks, err => {
       logger.info ('all factories closed');
+      cb (err);
+    });
+  }
+
+
+  //////////////////////////////
+  _end_exchanges (cb) {
+    var tasks = [];
+
+    _.each (this._exchanges, (v, k) => {
+      tasks.push (cb => {
+        logger.info (`closing exchange ${k}`);
+        v.end (cb);
+      });
+    });
+
+    async.parallel (tasks, err => {
+      logger.info ('all exchanges closed');
       cb (err);
     });
   }

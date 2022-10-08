@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  ks1:
+    build:
+      context: ../../
+      dockerfile: ./Dockerfile
+    restart: on-failure
+    environment:
+      - LOG_level__default=info
+    ports:
+      - 3444:3444
+    volumes:
+      - ./etc:/usr/src/app/etc
+    depends_on:
+      - mongo
+
+  ks2:
+    build:
+      context: ../../
+      dockerfile: ./Dockerfile
+    restart: on-failure
+    environment:
+      - LOG_level__default=info
+    ports:
+      - 3445:3444
+    volumes:
+      - ./etc:/usr/src/app/etc
+    depends_on:
+      - mongo
+
+  ks3:
+    build:
+      context: ../../
+      dockerfile: ./Dockerfile
+    restart: on-failure
+    environment:
+      - LOG_level__default=info
+    ports:
+      - 3446:3444
+    volumes:
+      - ./etc:/usr/src/app/etc
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:4.4.2-bionic
+    command: --logpath /dev/null
+    restart: on-failure
+    ports:
+      - 27017:27017
+
+  redis:
+    image: redis:alpine
+    ports:
+     - 6379:6379
+
+networks:
+  default:
+
