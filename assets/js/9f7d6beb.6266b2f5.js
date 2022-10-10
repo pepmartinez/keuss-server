@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkkeuss_server_docusaurus=self.webpackChunkkeuss_server_docusaurus||[]).push([[645],{4516:s=>{s.exports=JSON.parse('{"label":"exchanges","permalink":"/keuss-server/blog/tags/exchanges","allTagsPath":"/keuss-server/blog/tags","count":1}')}}]);

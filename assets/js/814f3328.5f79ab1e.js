@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkkeuss_server_docusaurus=self.webpackChunkkeuss_server_docusaurus||[]).push([[535],{5641:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"AMQP 1.0 Support","permalink":"/keuss-server/blog/amqp"},{"title":"New website!","permalink":"/keuss-server/blog/welcome"}]}')}}]);
