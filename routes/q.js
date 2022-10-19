@@ -379,7 +379,8 @@ function get_router(config, context) {
 
   router.param ('q', (req, res, next, q) => {
     const ns = req.__namespace;
-    req.__q = scope.queue_from_ns (ns, q);
+    const opts = _.pick(req.query || {}, ['group', 'groups']);
+    req.__q = scope.queue_from_ns (ns, q, opts);
     next();
   });
 
