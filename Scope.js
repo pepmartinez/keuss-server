@@ -14,6 +14,14 @@ class Scope {
     this._signal_providers = {};
     this._q_namespaces = {};
     this._exchanges = {};
+
+    /*
+      namespaces store:
+      _q_namespaces: map(string) of 
+        factory:    QueueFactory
+        q_repo:     map(string) of Queue : canonical Queue object for its name
+        q_cl_repo:  map(string) of Queue : alternate Queue objects (used for different incarnations)
+    */
   }
 
 
@@ -107,11 +115,23 @@ class Scope {
 
   //////////////////////////////
   queue_from_ns (ns, qname, opts) {
-    if (!ns.q_repo.has(qname)) {
-      ns.q_repo.set(qname, ns.factory.queue(qname, opts || {}));
+    if (!ns.q_repo.has (qname)) {
+      ns.q_repo.set (qname, ns.factory.queue (qname));
+      logger.verbose ('created canonical queue [%s@%s] ondemand', qname, ns.factory.name());
     }
 
-    return ns.q_repo.get(qname);
+    if (opts) {
+      const key = qname + JSON.stringify (opts);
+      if (!ns.q_cl_repo.has (key)) {
+        ns.q_cl_repo.set (key, ns.factory.queue (qname, opts));
+        logger.verbose ('created alternate queue [%s@%s] ondemand', key, ns.factory.name());
+      }
+
+      return ns.q_cl_repo.get (key);
+    }
+    else {
+      return ns.q_repo.get (qname);
+    }
   }
 
 
@@ -208,7 +228,7 @@ class Scope {
             return cb (err);
           }
 
-          this._q_namespaces [namespace_name] = {factory: factory, q_repo: new Map ()};
+          this._q_namespaces [namespace_name] = {factory: factory, q_repo: new Map (), q_cl_repo: new Map ()};
           logger.info ('loaded queue namespace [%s] (keuss/backends/%s)', namespace_name, namespace.factory);
           cb ();
         });
@@ -512,6 +532,12 @@ class Scope {
           q.cancel();
         });
 
+        v.q_cl_repo.forEach ((q, qname) => {
+          logger.info (`cancelling queue ${qname}`);
+          // TODO drain queues
+          q.cancel();
+        });
+
         v.factory.close (cb);
       });
     });
@@ -546,6 +572,13 @@ class Scope {
     var tasks = [];
     _.each (this._q_namespaces, (v, k) => {
       v.q_repo.forEach ((q, qname) => {
+        tasks.push ((cb) => {
+          logger.info (`draining queue ${qname}`);
+          q.drain( cb);
+        });
+      });
+
+      v.q_cl_repo.forEach ((q, qname) => {
         tasks.push ((cb) => {
           logger.info (`draining queue ${qname}`);
           q.drain( cb);
