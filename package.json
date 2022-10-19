@@ -30,30 +30,30 @@
   },
   "dependencies": {
     "@promster/express": "~7.0.5",
-    "async": "~3.2.3",
-    "body-parser": "~1.20.0",
+    "async": "~3.2.4",
+    "body-parser": "~1.20.1",
     "cascade-config": "~1.5.6",
-    "express": "~4.18.1",
+    "express": "~4.18.2",
     "express-basic-auth": "~1.2.1",
     "http-shutdown": "~1.2.2",
-    "keuss": "1.6.15",
+    "keuss": "1.7.0",
     "lodash": "~4.17.21",
-    "prom-client": "~14.0.1",
+    "prom-client": "~14.1.0",
     "pug": "~3.0.2",
     "stomp-frames": "~1.0.6",
     "type-is": "~1.6.18",
     "uuid": "~8.3.2",
     "winston-log-space": "~1.0.7",
-    "rhea": "3.0.0",
-    "joi": "~17.6.0"
+    "rhea": "~3.0.1",
+    "joi": "~17.6.3"
   },
   "devDependencies": {
-    "chance": "~1.1.8",
-    "mocha": "~10.0.0",
+    "chance": "~1.1.9",
+    "mocha": "~10.1.0",
     "nyc": "~15.1.0",
     "should": "~13.2.3",
     "stompit": "~1.0.0",
-    "supertest": "~6.2.3"
+    "supertest": "~6.3.0"
   },
   "scripts": {
     "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/",
