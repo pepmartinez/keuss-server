@@ -65,15 +65,6 @@ var config = {
       }
     },
     ns4: {
-      factory: 'bucket-mongo',
-      disable: false,
-      config: {
-        url: 'mongodb://mongo/bucket_mongo',
-        stats: 'mongo',
-        signaller: 'mongo'
-      }
-    },
-    ns5: {
       factory: 'bucket-mongo-safe',
       disable: false,
       config: {

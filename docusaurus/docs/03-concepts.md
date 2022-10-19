@@ -182,16 +182,6 @@ var config = {
         signaller: 'mongo'
       }
     },
-    // queues backed by bucket-mongo storage. This storage is deprecated in favor of bucket-mongo-safe
-    fastbuckets: {
-      factory: 'bucket-mongo',
-      disable: false,
-      config: {
-        url: '{data.bucket-mongo.url:mongodb://localhost/bucket_mongo_data}',
-        stats: 'mongo',
-        signaller: 'mongo'
-      }
-    },
     // queues on bucket-mongo-safe. High throughput, low latency, all features kept, still strong durability guarantees
     safebuckets: {
       factory: 'bucket-mongo-safe',

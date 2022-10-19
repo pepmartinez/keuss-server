@@ -59,19 +59,6 @@ var config = {
         }
       }
     },
-    bucket_mongo: {
-      factory: 'bucket-mongo',
-      config: {
-        url: 'mongodb://localhost:27017/keuss-server-test__bucket-mongo',
-        pollInterval: 17000,
-        stats: {
-          provider: stats_redis,
-        },
-        signaller: {
-          provider: signal_redis
-        }
-      }
-    },
     bucket_mongo_safe: {
       factory: 'bucket-mongo-safe',
       config: {
@@ -173,7 +160,6 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape',
-  'bucket_mongo',
   'bucket_mongo_safe'
 ], namespace => {
   describe('STOMP push/pop operations on queue namespace ' + namespace, () => {
