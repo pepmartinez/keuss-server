@@ -53,10 +53,10 @@
     "nyc": "~15.1.0",
     "should": "~13.2.3",
     "stompit": "~1.0.0",
-    "supertest": "~6.3.0"
+    "supertest": "~6.3.3"
   },
   "scripts": {
-    "test": "mocha --reporter spec --check-leaks --no-timeouts --exit test/",
-    "test-with-coverage": "nyc --reporter=html -- mocha --reporter spec --check-leaks --no-timeouts --exit test/"
+    "test": "docker compose up -d; sleep 5; mocha --reporter spec --check-leaks --no-timeouts --exit test/ ; docker compose down",
+    "test-with-coverage": "docker compose up -d; sleep 5; nyc --reporter=html -- mocha --reporter spec --check-leaks --no-timeouts --exit ; test/docker compose down"
   }
 }
