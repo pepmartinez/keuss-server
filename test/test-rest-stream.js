@@ -1,7 +1,7 @@
-const should = require('should');
-const async = require('async');
+const should =  require('should');
+const async =   require('async');
 const request = require('supertest');
-const _ = require('lodash');
+const _ =       require('lodash');
 
 const BaseApp = require ('../app');
 const Scope =   require ('../Scope');
@@ -38,57 +38,84 @@ const config = {
 };
 
 
-function put_msg(namespace, q, msg, cb) {
+/*
+opts: {
+  delay:   msecs,
+}
+*/
+function put_msg(namespace, q, msg, opts, cb) {
+  if (!cb) cb = opts;
+  const qry = _.merge ({groups: 'G1,G2,G3'}, opts);
   request(theApp)
     .put('/q/' + namespace + '/' + q)
     .send(msg)
     .auth('test', 'toast')
-    .query ({groups: 'G1,G2,G3'})
+    .query (qry)
     .expect(200)
     .end((err, res) => {
       cb(err, res && res.body);
     });
 }
 
-function put_msg_delayed(namespace, q, msg, delay, cb) {
-  request(theApp)
-    .put('/q/' + namespace + '/' + q)
-    .query({
-      delay: delay
-    })
-    .send(msg)
-    .auth('test', 'toast')
-    .expect(200)
-    .end(function (err, res) {
-      cb(err, res && res.body);
-    });
-}
 
-function get_msg(namespace, q, gr, cb) {
+/*
+opts: {
+  expect: http rescode to expect
+  raw: return raw instead of just body
+  delay:   msecs,
+  to:    timeout in msecs,
+}
+*/
+function get_msg(namespace, q, gr, opts, cb) {
+  if (!cb) cb = opts;
+  const qry = _.merge ({}, opts, {group: gr});
   request(theApp)
     .get('/q/' + namespace + '/' + q)
+    .expect(opts.expect || 200)
+    .auth('test', 'toast')
+    .query (qry)
+    .end((err, res) => {
+      cb(err, opts.raw ? res : (res && res.body));
+    });
+}
+
+/*
+opts: {
+}
+*/
+function commit_msg(namespace, q, gr, id, opts, cb) {
+  if (!cb) cb = opts;
+  const qry = _.merge ({}, opts, {group: gr});
+  request(theApp)
+    .patch(`/q/${namespace}/${q}/commit/${id}`)
     .expect(200)
     .auth('test', 'toast')
-    .query ({group: gr})
+    .query (qry)
     .end((err, res) => {
       cb(err, res && res.body);
     });
 }
 
 
-function get_msg_timeout(namespace, q, gr, timeout, cb) {
+/*
+opts: {
+  delay: delay in millisecs
+}
+*/
+function rollback_msg(namespace, q, gr, id, opts, cb) {
+  if (!cb) cb = opts;
+  const qry = _.merge ({delay: 1000}, opts, {group: gr});
   request(theApp)
-    .get('/q/' + namespace + '/' + q)
-    .query({
-      to:    timeout,
-      group: gr
-    })
-    .expect(504)
+    .patch(`/q/${namespace}/${q}/rollback/${id}`)
+    .expect(200)
     .auth('test', 'toast')
+    .query (qry)
     .end((err, res) => {
       cb(err, res && res.body);
     });
 }
+
+
 
 const metrics = {
 };
@@ -123,8 +150,9 @@ _.forEach([
     });
 
 
+    //////////////////////////////////////////////////////////////////////////
     it('does push/pop with 3 consumers ok', done => {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -132,6 +160,9 @@ _.forEach([
           cb: {}
         }
       };
+
+      const t0 = new Date().getTime();
+
       async.parallel([
         cb => async.parallel ([
           cb => get_msg(namespace, 'q1', 'G1', cb),
@@ -143,6 +174,9 @@ _.forEach([
           cb => put_msg(namespace, 'q1', msg, cb),
         ], cb),
       ], (err, allres) => {
+        const t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(1000, 500);
+
         allres[0][0].should.eql(msg);
         allres[0][1].should.eql(msg);
         allres[0][2].should.eql(msg);
@@ -151,8 +185,9 @@ _.forEach([
     });
 
 
+    //////////////////////////////////////////////////////////////////////////
     it('does timeout on unknown group consumer', done => {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -160,19 +195,25 @@ _.forEach([
           cb: {}
         }
       };
+
+      const t0 = new Date().getTime();
+
       async.parallel([
         cb => async.parallel ([
           cb => get_msg(namespace, 'q1', 'G1', cb),
           cb => get_msg(namespace, 'q1', 'G2', cb),
           cb => get_msg(namespace, 'q1', 'G3', cb),
-          cb => get_msg_timeout(namespace, 'q1', 'G9', 3000, cb),
-          cb => get_msg_timeout(namespace, 'q1', 'AAA', 2000, cb),
+          cb => get_msg(namespace, 'q1', 'G9', {to: 3000, expect: 504}, cb),
+          cb => get_msg(namespace, 'q1', 'AAA', {to: 2000, expect: 504}, cb),
         ], cb),
         cb => async.series ([
           cb => setTimeout (cb, 1000),
           cb => put_msg(namespace, 'q1', msg, cb),
         ], cb),
       ], (err, allres) => {
+        const t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(3000, 500);
+
         allres[0][0].should.eql(msg);
         allres[0][1].should.eql(msg);
         allres[0][2].should.eql(msg);
@@ -181,6 +222,75 @@ _.forEach([
         done(err);
       });
     });
+
+    
+    //////////////////////////////////////////////////////////////////////////
+    it ('honors independent retries with delays just fine', done => {
+      const msg = {
+        a: 'aaa',
+        b: 666,
+        c: {
+          ca: 'rtrtr',
+          cb: {}
+        }
+      };
+      
+      const t0 = new Date().getTime();
+
+      async.parallel([
+        cb => async.parallel ([
+          cb => {
+            const scope = {};
+            async.series ([
+              cb => get_msg(namespace, 'q1', 'G1', {reserve: true, raw: true}, (err, res) => {scope.reserve = res; cb (err, res && res.body)}),
+              cb => setTimeout (cb, 100),
+              cb => rollback_msg(namespace, 'q1', 'G1', scope.reserve.headers['x-ks-id'], {delay: 4000}, cb),
+              cb => get_msg(namespace, 'q1', 'G1', {reserve: true, raw: true}, (err, res) => {scope.reserve = res; cb (err, res && res.body)}),
+              cb => setTimeout (cb, 100),
+              cb => commit_msg(namespace, 'q1', 'G1', scope.reserve.headers['x-ks-id'], cb),
+            ], cb);
+          },
+          cb => {
+            const scope = {};
+            async.series ([
+              cb => get_msg(namespace, 'q1', 'G2', {reserve: true, raw: true}, (err, res) => {scope.reserve = res; cb (err, res && res.body)}),
+              cb => setTimeout (cb, 100),
+              cb => rollback_msg(namespace, 'q1', 'G2', scope.reserve.headers['x-ks-id'], {delay: 5000}, cb),
+              cb => get_msg(namespace, 'q1', 'G2', {reserve: true, raw: true}, (err, res) => {scope.reserve = res; cb (err, res && res.body)}),
+              cb => setTimeout (cb, 100),
+              cb => commit_msg(namespace, 'q1', 'G2', scope.reserve.headers['x-ks-id'], cb),
+            ], cb);
+          },
+          cb => {
+            const scope = {};
+            async.series ([
+              cb => get_msg(namespace, 'q1', 'G3', {reserve: true, raw: true}, (err, res) => {scope.reserve = res; cb (err, res && res.body)}),
+              cb => setTimeout (cb, 100),
+              cb => rollback_msg(namespace, 'q1', 'G3', scope.reserve.headers['x-ks-id'], {delay: 3000}, cb),
+              cb => get_msg(namespace, 'q1', 'G3', {reserve: true, raw: true}, (err, res) => {scope.reserve = res; cb (err, res && res.body)}),
+              cb => setTimeout (cb, 100),
+              cb => commit_msg(namespace, 'q1', 'G3', scope.reserve.headers['x-ks-id'], cb),
+            ], cb);
+          },
+        ], cb),
+        cb => async.series ([
+          cb => setTimeout (cb, 1000),
+          cb => put_msg(namespace, 'q1', msg, cb),
+        ], cb),
+      ], (err, allres) => {
+        const t1 = new Date().getTime();
+        (t1 - t0).should.be.approximately(6000, 500);
+
+        allres[0][0][0].should.eql(msg);
+        allres[0][0][3].should.eql(msg);
+        allres[0][1][0].should.eql(msg);
+        allres[0][1][3].should.eql(msg);
+        allres[0][2][0].should.eql(msg);
+        allres[0][2][3].should.eql(msg);
+        done(err);
+      });
+    });
+
 
   });
 });
