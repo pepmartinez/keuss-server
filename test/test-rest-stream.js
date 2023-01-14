@@ -8,9 +8,6 @@ const Scope =   require ('../Scope');
 
 let theApp = null;
 
-const stats_redis =  require('keuss/stats/redis');
-const signal_redis = require('keuss/signal/redis-pubsub');
-
 const stats_mongo =  require('keuss/stats/mongo');
 const signal_mongo = require('keuss/signal/mongo-capped');
 
