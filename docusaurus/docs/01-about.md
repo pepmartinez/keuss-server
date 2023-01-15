@@ -20,3 +20,5 @@ In brief, these are the features fully inherited from Keuss:
 * [bucket based queues](https://pepmartinez.github.io/keuss/docs/usage/buckets) for higher throughput and performance without relinquishing durability
 * Exchanges: build flow graphs to move and replicate messages over a network of job queues
 * `prometheus` metrics on queues, exchanges and protocol servers
+* [Exchanges](/docs/Usage/exchanges): server-side, fully clustered connectors between queues
+* Support for [simple stream-like queues](https://pepmartinez.github.io/keuss/docs/usage/streaming/stream-mongo), not just job-like queues: any element can be consumed more than once, in a totally independent manner

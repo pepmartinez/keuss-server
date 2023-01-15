@@ -23,17 +23,31 @@ Keuss; see [here](https://pepmartinez.github.io/keuss/docs/concepts#storage)
 
 ## Signaller
 
-Signallers provide the needed clustering node intercommunication; all of Keuss' signallers can be used, although for true clustering the use of `local` signaller is not recommended. See [here](https://pepmartinez.github.io/keuss/docs/concepts#signaller) for more info
+Signallers provide the needed clustering node intercommunication; all of Keuss' signallers can be used, although for true clustering the use of `local` signaller 
+is not recommended. See [here](https://pepmartinez.github.io/keuss/docs/concepts#signaller) for more info
 
 ## Stats
 
-Per-cluster Stats are also provided by Keuss; any of Keuss Stats providers can be used, but use of `mem` provider would not provide actual per-cluster stats in a multi-node cluster
+Per-cluster Stats are also provided by Keuss; any of Keuss Stats providers can be used, but use of `mem` provider would not provide actual per-cluster stats in 
+a multi-node cluster
 
 ## Exchange
 
-A graph interconnecting queues -even on different namespaces and using different backends in different datacenters- can be defined by means of exchanges; one exchange is basically a consumer loop acting (popping) in a 'source' queue, and inserting (pushing) on zero or more queues, where the push on each queue is conditional and may modify the message in the process
+A graph interconnecting queues -even on different namespaces and using different backends in different datacenters- can be defined by means of exchanges; one 
+exchange is basically a consumer loop acting (popping) in a 'source' queue, and inserting (pushing) on zero or more queues, where the push on each queue is 
+conditional and may modify the message in the process
 
 Exchanges can be created by config, or managed via REST; they are created in all nodes of a cluster, too, so they are fully distributed
+
+## Streams
+Starting with `keuss` 1.7.0 a new storage backend `stream-mongo` was added: it provides the creation of queues where pushed elements can be consumed by more 
+than one consumer, although with limitations: it aims to cater for simple cases where a small number of consumers is expected. See 
+[here](https://pepmartinez.github.io/keuss/docs/usage/streaming/stream-mongo) for details
+
+:::info
+Streams exist in `keuss-server` as regular queues; however, they can only be used through `REST`and `STOMP` APIs: 
+they can be accessed via `AMQP` API, but only as regular queues
+:::
 
 ## How all fits together
 
@@ -43,10 +57,12 @@ Exchanges can be created by config, or managed via REST; they are created in all
  * A specific Storage and config
  * One of the Stats objects defined above
  * One of the Signallers defined above
-4. One REST server is created on top of the set of queue namespaces
-5. One STOMP server is created on top of the set of queue namespaces
-6. One AMQP1.0 server is created on top of the set of queue namespaces
-7. zero or more exchanges can be added over the full set of queues on all namespaces
+4. Zero or more queues are created inside the namespace, using the stats, signallers, storage and config defined in it
+5. One REST server is created on top of the set of queue namespaces
+6. One STOMP server is created on top of the set of queue namespaces
+7. One AMQP1.0 server is created on top of the set of queue namespaces
+8. Zero or more exchanges can be added over the full set of queues on all namespaces; each exchange can connect one 
+   queue on any namespace to any number of queues (which can be define in any namespace, and not all queues in the same)
 
 ## Configuration
 
