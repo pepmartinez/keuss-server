@@ -7,7 +7,7 @@ sidebar_label: Streams
 Starting with version 2.0.1 `keuss` offers a storage backend that offers capabilities beyond job queues: in a job queue each 
 element in the queue can be consumed by exacty one consumer; this backend extends this to several consumers, although the set 
 of potential consumers must be fixed and known at insertion time. You can read in detail about this at 
-(stream-mongo backend)[https://pepmartinez.github.io/keuss/docs/usage/streaming/stream-mongo]
+[stream-mongo backend](https://pepmartinez.github.io/keuss/docs/usage/streaming/stream-mongo)
 
 Queeus backed by `stream-mongo` can be managed as regular job queues at `keuss`, but the extra, stream features are only available
 through `REST` and `STOMP` APIs
@@ -61,3 +61,10 @@ Just specify the consumer group as `group`. It is important to specify the *same
 curl -i -X PATCH http://localhost:3444/q/ns1/test_queue_42/rollback/6322ed6caf9be003dcfaaaae?group=GR2&delay=5000
 ```
 
+
+## Streams in STOMP API
+The extra details are specified via extra headers:
+* `x-ks-groups`: set of potential consumer groups, in the insert operations
+* `x-ks-group`: consumer group to use, in get, reserve, commit and rollback operations
+
+In commit and rollback operations it is important to specify the *same* value of `x-ks-group` specified in the reserve:
