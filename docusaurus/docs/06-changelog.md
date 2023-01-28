@@ -3,7 +3,7 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
-* v2.0.1
+* v2.1.0
   * added support for streams
   * use keuss v1.7.0
   * updated other deps
