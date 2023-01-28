@@ -300,6 +300,7 @@ Inserts an object into a queue. All parameters in the querystring are passed to 
 * `mature`: unix timestamp where the element would be eligible for extraction. It is guaranteed that the element won't be extracted before this time
 * `delay`: delay in seconds to calculate the mature timestamp, if mature is not provided. For example, a delay=120 guarantees the element won't be extracted until 120 secs have elapsed at least
 * `tries`: value to initialize the retry counter, defaults to 0 (still no retries)
+* `groups`: (used by `stream-mongo` backed queues): set of potential consumer groupss for the element, comma-separated strings
 
 Any type of body is supported (json, string, Buffer); for that matter, the `content-type` header is stored aonlgside the body as a keuss element header; also, any http header with name starting with `x-ks-hdr-` is also stored
 
@@ -324,6 +325,7 @@ Admits the following query parameters:
 * `to`: timeout in millisecs if the operation needs to block. Blocks indefinitely by default
 * `tid`: optional identifier for the consumer, needed if `cancel` on this call is to be supported. By defaut no tid is used (and therefore no `cancel` is possible)
 * `reserve`: if truthy, the operation attempts a `reserve` rather than a `pop`. By default, a `pop` is attempted
+* `group`: (used by `stream-mongo` backed queues): consumer group to use
 
 The response body will be the element body, as it was inserted (json object, string, Buffer) and with its original `content-type`. Any element header (for example, those passed via REST or STOMP with name starting with `x-ks-hdr-`) will be added as response headers (prefixed by `x-ks-hdr-`)
 
@@ -416,6 +418,10 @@ cancel
 
 Commits a previous `reserve` operation. `id` is the `x-ks-id` header returned in the reserve request
 
+Admits the following query parameters:
+
+* `group`: (used by `stream-mongo` backed queues) If speficied in the `reserve` operation, the same value must be passed here
+
 ```
 # reserve element
 $ curl -i -utest1:test1 http://localhost:3444/q/ns1/test_queue_42?reserve=1
@@ -450,6 +456,8 @@ Rollbacks a previous `reserve` operation. `id` is the `x-ks-id` header returned 
 Admits the following query parameters:
 
 * `delay`: delay in millisecs to apply to the rolled back object: it will be available for `get`/`reserve` after *delay* milliseconds. Defaults to 0, so rolled back elements are immediately available to others
+* `group`: (used by `stream-mongo` backed queues) If speficied in the `reserve` operation, the same value must be passed here
+
 
 ```
 # reserve element
@@ -483,6 +491,10 @@ Keep-Alive: timeout=5
 Removes an element from a queue, by id. The id is the one returned in the json response body at insertion
 
 Returns a `HTTP 204` upon success
+
+:::info
+This operation is not supported for `stream-mongo` backed queues
+:::
 
 ```
 $ curl -i -utest1:test1 -X PUT  -H 'content-type: text/plain' --data-bin 'test test test' -H 'x-ks-hdr-header-1: val1'  http://localhost:3444/q/ns1/test_queue_42?delay=3

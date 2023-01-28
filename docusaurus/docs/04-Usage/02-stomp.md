@@ -26,4 +26,7 @@ There are also a few additions on top of the standard STOMP:
   * `x-mature`: ISO timestamp when the message became eligible for `pop`/`reserve` (mature)
   * `x-tries`: number of tries of this message. Each NACK increments this value, so this can be used in conjunction with `x-delta-t` to implement custom delays on failing elements, or limiting the number of retries
   * any header with name starting with `x-ks-hdr-` is stored alongside the body (as keuss element headers) and therefore passed along it
+* support for [streams](/docs/Usage/streams) by means of these headers:
+  * `x-ks-groups`: set of potential consumer groups, in the insert operations
+  * `x-ks-group`: consumer group to use, in get, reserve, commit and rollback operations
 * There is no support for `auth` yet. User and password are simply ignored

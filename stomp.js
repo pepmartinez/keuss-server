@@ -486,7 +486,7 @@ class STOMP {
 
 
   ///////////////////////////////////////////////////////////////////////////
-  _get_queue (destination) {
+  _get_queue (destination, opts) {
     // dest must be /ns/queue
     if (!destination.match (/^\/q\/[a-zA-Z0-9\\-_:]+\/[a-zA-Z0-9\\-_]+$/)) {
       return `destination ${destination} must match /q/<namespace>/<queue>`;
@@ -500,7 +500,7 @@ class STOMP {
     }
 
     const qname = arr[3];
-    const q = this._scope.queue_from_ns (ns, qname);
+    const q = this._scope.queue_from_ns (ns, qname, opts);
     return q;
   }
 
@@ -573,7 +573,9 @@ class STOMP {
       if (k.match (/^x-ks-hdr-.+/)) opts.hdrs[k.substr (9)] = v;
     });
 
-    var q = this._get_queue (frm.destination);
+    // get x-ks-groups 
+    var groups = frm.header ('x-ks-groups');
+    var q = this._get_queue (frm.destination, groups ? {groups} : null);
     if (_.isString (q)) return this._error_in_session (sess, frm, q);
 
     q.push (body, opts, (err, id) => {
@@ -593,7 +595,10 @@ class STOMP {
     logger.debug ('%s@stomp: got SUBSCRIBE, %j', sess.id, frm);
 
     var subscribe_opts = {};
-    var q = this._get_queue (frm.destination);
+
+    // get x-ks-group
+    var group = frm.header ('x-ks-group');
+    var q = this._get_queue (frm.destination, group ? {group} : null);
 
     if (_.isString (q)) return this._error_in_session (sess, frm, q);
 

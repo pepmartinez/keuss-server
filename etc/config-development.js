@@ -1,5 +1,5 @@
 
-var config = {
+const config = {
   http: {
     users: {
       'test1': 'test1',
@@ -73,20 +73,20 @@ var config = {
         signaller: 'mongo'
       }
     },
-    fastbuckets: {
-      factory: 'bucket-mongo',
-      disable: false,
-      config: {
-        url: '{data.bucket-mongo.url:mongodb://localhost/bucket_mongo_data}',
-        stats: 'mongo',
-        signaller: 'mongo'
-      }
-    },
     safebuckets: {
       factory: 'bucket-mongo-safe',
       disable: false,
       config: {
         url: '{data.bucket-mongo-safe.url:mongodb://localhost/bucket_mongo_data_safe}',
+        stats: 'mongo',
+        signaller: 'mongo'
+      }
+    },
+    streams: {
+      factory: 'stream-mongo',
+      disable: false,
+      config: {
+        url: '{data.stream-mongo.url:mongodb://localhost/stream_mongo_data}',
         stats: 'mongo',
         signaller: 'mongo'
       }

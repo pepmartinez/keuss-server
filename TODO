@@ -14,3 +14,12 @@
 
 * Exchanges
   + Reviewing the documentacion of keuss, I cannot find where we documented the `mature`, `delay` and `tries` properties for the push() operation. Ill like to put a link to that from the exchange doc
+
+ * documentation
+
+ * blog
+   + article on buckets
+   + article on ETLs/Pipelines
+   + article on streams, with scalability tests
+   + compared performance tests with other MQs in same-host conditions
+     - write a test tool
