@@ -1,7 +1,7 @@
-# docker build -t pepmartinez/keuss-server:2.1.0 .
-# docker push pepmartinez/keuss-server:2.1.0
+# docker build -t pepmartinez/keuss-server:2.1.2 .
+# docker push pepmartinez/keuss-server:2.1.2
 
-FROM node:14.18.2-alpine
+FROM node:20-slim
 
 WORKDIR /usr/src/app
 COPY package*.json ./
