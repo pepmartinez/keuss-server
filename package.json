@@ -1,6 +1,6 @@
 {
   "name": "keuss-server",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "keywords": [
     "queue",
     "job",
@@ -29,23 +29,23 @@
     "keuss": "./index.js"
   },
   "dependencies": {
-    "@promster/express": "~7.0.6",
+    "@promster/express": "~12.0.0",
     "async": "~3.2.4",
     "body-parser": "~1.20.2",
     "cascade-config": "~1.6.0",
     "express": "~4.18.2",
     "express-basic-auth": "~1.2.1",
     "http-shutdown": "~1.2.2",
-    "keuss": "1.7.3",
+    "keuss": "1.7.4",
     "lodash": "~4.17.21",
-    "prom-client": "~14.2.0",
+    "prom-client": "~15.0.0",
     "pug": "~3.0.2",
     "stomp-frames": "~1.0.6",
     "type-is": "~1.6.18",
     "uuid": "~8.3.2",
     "winston-log-space": "~1.1.1",
     "rhea": "~3.0.2",
-    "joi": "~17.9.2"
+    "joi": "~17.11.0"
   },
   "devDependencies": {
     "chance": "~1.1.11",
