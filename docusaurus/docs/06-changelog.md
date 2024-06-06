@@ -3,6 +3,15 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
+* v2.1.4
+  * updated other deps
+* v2.1.3
+  * updated other deps
+* v2.1.2
+  * uses `node:20-slim` as base image
+  * updated other deps
+* v2.1.1
+  * updated other deps
 * v2.1.0
   * added support for streams
   * use keuss v1.7.0
