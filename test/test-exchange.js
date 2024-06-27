@@ -549,26 +549,26 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback', 'exchange_h
 
 describe(`REST mgmt of exchanges`, () => {
   before (done => {
-//        Log.init (() => {
-        const BaseApp = require ('../app');
-        const Scope =   require ('../Scope');
+//    Log.init (() => {
+      const BaseApp = require ('../app');
+      const Scope =   require ('../Scope');
 
-        context.config = config_pop;
-        context.scope = new Scope ();
+      context.config = config_pop;
+      context.scope = new Scope ();
 
-        async.series ([
-          cb => BaseApp (config_pop, context, null, (err, app) => {
-            if (err) return cb (err);
-            context.app = app;
-            context.promster = context.app.locals.Prometheus;
-            cb ();
-          }),
-          cb => {context.metrics = metrics; cb ();},
-          cb => context.scope.init (config_pop, context, cb),
-          cb => context.scope.start (cb)
-        ], done);
-//        });
-    });
+      async.series ([
+        cb => BaseApp (config_pop, context, null, (err, app) => {
+          if (err) return cb (err);
+          context.app = app;
+          context.promster = context.app.locals.Prometheus;
+          cb ();
+        }),
+        cb => {context.metrics = metrics; cb ();},
+        cb => context.scope.init (config_pop, context, cb),
+        cb => context.scope.start (cb)
+      ], done);
+//    });
+  });
 
     after(done => {
       context.app.locals.Prometheus.register.clear();
@@ -715,7 +715,7 @@ describe(`REST mgmt of exchanges`, () => {
       .auth('test', 'toast')
       .send ({
         src: { ns: 'ns1', queue: 'q000' },
-        dst: [ { ns: 'unknown_ns', queue: 'q001' }]
+        dst: [{ns: 'unknown_ns', queue: 'q001'}]
       })
       .expect(201)
       .end((err, res) => {

@@ -380,8 +380,11 @@ function get_router(config, context) {
   router.param ('q', (req, res, next, q) => {
     const ns = req.__namespace;
     const opts = _.pick(req.query || {}, ['group', 'groups']);
-    req.__q = scope.queue_from_ns (ns, q, opts);
-    next();
+
+    scope.queue_from_ns (ns, q, opts, (err, q) => {
+      req.__q = q;
+      next(err);
+    });
   });
 
   const json_mw = bodyParser.json ();

@@ -486,22 +486,21 @@ class STOMP {
 
 
   ///////////////////////////////////////////////////////////////////////////
-  _get_queue (destination, opts) {
+  _get_queue (destination, opts, cb) {
     // dest must be /ns/queue
     if (!destination.match (/^\/q\/[a-zA-Z0-9\\-_:]+\/[a-zA-Z0-9\\-_]+$/)) {
-      return `destination ${destination} must match /q/<namespace>/<queue>`;
+      return cb(`destination ${destination} must match /q/<namespace>/<queue>`);
     }
 
     var arr = destination.split('/');
     var ns = this._scope.namespace (arr[2]);
 
     if (!ns) {
-      return `unknown namespace ${ns} on destination queue ${destination}`;
+      return cb (`unknown namespace ${ns} on destination queue ${destination}`);
     }
 
     const qname = arr[3];
-    const q = this._scope.queue_from_ns (ns, qname, opts);
-    return q;
+    this._scope.queue_from_ns (ns, qname, opts, cb);
   }
 
 
@@ -574,18 +573,20 @@ class STOMP {
     });
 
     // get x-ks-groups 
-    var groups = frm.header ('x-ks-groups');
-    var q = this._get_queue (frm.destination, groups ? {groups} : null);
-    if (_.isString (q)) return this._error_in_session (sess, frm, q);
+    const groups = frm.header ('x-ks-groups');
+    
+    this._get_queue (frm.destination, groups ? {groups} : null, (err, q) => {
+      if (err) return this._error_in_session (sess, frm, err);
 
-    q.push (body, opts, (err, id) => {
-      if (err) {
-        this._error_in_session (sess, frm, err);
-      } else {
-        this._honor_receipt (sess, frm);
-      }
+      q.push (body, opts, (err, id) => {
+        if (err) {
+          this._error_in_session (sess, frm, err);
+        } else {
+          this._honor_receipt (sess, frm);
+        }
 
-      this._metrics.keuss_q_push.labels ('stomp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
+        this._metrics.keuss_q_push.labels ('stomp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
+      });
     });
   }
 
@@ -598,79 +599,80 @@ class STOMP {
 
     // get x-ks-group
     var group = frm.header ('x-ks-group');
-    var q = this._get_queue (frm.destination, group ? {group} : null);
+    
+    this._get_queue (frm.destination, (group ? {group} : null), (err, q) => {
+      if (err) return this._error_in_session (sess, frm, err);
 
-    if (_.isString (q)) return this._error_in_session (sess, frm, q);
+      // check ack level
+      switch (frm.ack) {
+        case 'auto':
+          subscribe_opts.reserve = false;
+          break;
 
-    // check ack level
-    switch (frm.ack) {
-      case 'auto':
-        subscribe_opts.reserve = false;
-        break;
+        case 'client-individual':
+          // check if queue actualy supports reserve
+          if (!q.capabilities().reserve) {
+            return this._error_in_session (sess, frm, util.format ('ack level [%s] not supported by queue backend. Use "auto" instead', frm.ack));
+          }
 
-      case 'client-individual':
-        // check if queue actualy supports reserve
-        if (!q.capabilities().reserve) {
-          return this._error_in_session (sess, frm, util.format ('ack level [%s] not supported by queue backend. Use "auto" instead', frm.ack));
+          subscribe_opts.reserve = true;
+          break;
+
+        default:
+          return this._error_in_session (sess, frm, util.format ('ack level [%s] not supported', frm.ack));
+      }
+
+      if (frm.header('x-parallel')) subscribe_opts.parallel = (parseInt (frm.header('x-parallel')) || 1);
+      if (frm.header('x-wsize'))    subscribe_opts.wsize =    (parseInt (frm.header('x-wsize'))    || 1000);
+
+      var qc = new QConsumer (q, subscribe_opts, {metrics: this._metrics}, (err, item) => {
+        logger.debug ('got elem for subscr: %j - %j', err, item, {});
+
+        if (sess.s == 'ended') {
+          logger.warn ('[STOMP session %s] got item for subscr on ended session, ignoring', sess.id);
+
+          // TODO nack it if possible
+
+          return;
         }
 
-        subscribe_opts.reserve = true;
-        break;
+        // pass error if no payload
+        if ((!item) || (!item.payload)) {
+          return this._error_in_session (sess, frm, util.format ('subscription %s got an empty message. Queue may not support ack level "client-individual"', frm.id));
+        }
 
-      default:
-        return this._error_in_session (sess, frm, util.format ('ack level [%s] not supported', frm.ack));
-    }
+        var m_frm = new SF.Frame ();
+        m_frm.command (SF.Commands.MESSAGE);
 
-    if (frm.header('x-parallel')) subscribe_opts.parallel = (parseInt (frm.header('x-parallel')) || 1);
-    if (frm.header('x-wsize'))    subscribe_opts.wsize =    (parseInt (frm.header('x-wsize'))    || 1000);
+        m_frm.header ('subscription', frm.id);
+        m_frm.header ('message-id', frm.id + '@' + (item._id ? item._id.toString() : 'none'));
+        m_frm.header ('destination', q.name());
+        m_frm.header ('x-mature', item.mature.toISOString ());
+        m_frm.header ('x-tries', item.tries + '');
+        m_frm.header ('content-type', item.hdrs['content-type'] ? item.hdrs['content-type'] : 'application/json ; charset=utf8');
 
-    var qc = new QConsumer (q, subscribe_opts, {metrics: this._metrics}, (err, item) => {
-      logger.debug ('got elem for subscr: %j - %j', err, item, {});
+        // pass x-ks-hdr-* extra headers
+        _.each (item.hdrs, (v, k) => {
+          if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v + '');
+        });
 
-      if (sess.s == 'ended') {
-        logger.warn ('[STOMP session %s] got item for subscr on ended session, ignoring', sess.id);
-
-        // TODO nack it if possible
-
-        return;
-      }
-
-      // pass error if no payload
-      if ((!item) || (!item.payload)) {
-        return this._error_in_session (sess, frm, util.format ('subscription %s got an empty message. Queue may not support ack level "client-individual"', frm.id));
-      }
-
-      var m_frm = new SF.Frame ();
-      m_frm.command (SF.Commands.MESSAGE);
-
-      m_frm.header ('subscription', frm.id);
-      m_frm.header ('message-id', frm.id + '@' + (item._id ? item._id.toString() : 'none'));
-      m_frm.header ('destination', q.name());
-      m_frm.header ('x-mature', item.mature.toISOString ());
-      m_frm.header ('x-tries', item.tries + '');
-      m_frm.header ('content-type', item.hdrs['content-type'] ? item.hdrs['content-type'] : 'application/json ; charset=utf8');
-
-      // pass x-ks-hdr-* extra headers
-      _.each (item.hdrs, (v, k) => {
-        if (k != 'content-type') m_frm.header ('x-ks-hdr-' + k, v + '');
+        var body = item.payload;
+        if (_.isObject (body) && (!_.isBuffer (body))) body = JSON.stringify (body);
+        m_frm.body (body);
+        this._write_frm (sess, m_frm);
       });
 
-      var body = item.payload;
-      if (_.isObject (body) && (!_.isBuffer (body))) body = JSON.stringify (body);
-      m_frm.body (body);
-      this._write_frm (sess, m_frm);
+      qc.start ();
+
+      sess.subscrs[frm.id] = {
+        destination: frm.destination,
+        id: frm.id,
+        qc: qc
+      };
+
+      logger.info ('%s@stomp: subscribed to %s, id %s', sess.id, frm.destination, frm.id);
+      this._honor_receipt (sess, frm);
     });
-
-    qc.start ();
-
-    sess.subscrs[frm.id] = {
-      destination: frm.destination,
-      id: frm.id,
-      qc: qc
-    };
-
-    logger.info ('%s@stomp: subscribed to %s, id %s', sess.id, frm.destination, frm.id);
-    this._honor_receipt (sess, frm);
   }
 
 
