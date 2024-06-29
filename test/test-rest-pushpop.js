@@ -1,20 +1,20 @@
-var should = require('should');
-var async = require('async');
-var request = require('supertest');
-var _ = require('lodash');
+const should = require('should');
+const async = require('async');
+const request = require('supertest');
+const _ = require('lodash');
 
-var BaseApp = require('../app');
-var Scope =   require ('../Scope');
+const BaseApp = require('../app');
+const Scope =   require ('../Scope');
 
-var theApp;
+let theApp;
 
-var stats_redis =  require('keuss/stats/redis');
-var signal_redis = require('keuss/signal/redis-pubsub');
+const stats_redis =  require('keuss/stats/redis');
+const signal_redis = require('keuss/signal/redis-pubsub');
 
-var stats_mongo =  require('keuss/stats/mongo');
-var signal_mongo = require('keuss/signal/mongo-capped');
+const stats_mongo =  require('keuss/stats/mongo');
+const signal_mongo = require('keuss/signal/mongo-capped');
 
-var config = {
+const config = {
   http: {
     users: {
       'test': 'toast'
@@ -94,6 +94,21 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        }
+      }
+    },
+    postgres: {
+      factory: 'postgres',
+      config: {
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     }
@@ -199,7 +214,7 @@ function _get_body (cb) {
 }
 
 
-var metrics = {
+const metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
@@ -219,10 +234,11 @@ _.forEach([
   'mongo_simple',
   'mongo_tape',
   'mongo_pipeline',
+  'postgres'
 ], function (namespace) {
   describe('REST push/pop operations on queue namespace ' + namespace, function () {
-    before(function (done) {
-      var scope = new Scope ();
+    before(done => {
+      const scope = new Scope ();
       scope.init (config, {}, function (err) {
         if (err) return done (err);
         BaseApp(config, {scope, metrics}, function () {}, function (err, app) {
@@ -232,7 +248,7 @@ _.forEach([
       });
     });
 
-    after(function (done) {
+    after(done => {
       theApp.locals.Prometheus.register.clear();
       done();
     });
@@ -263,8 +279,8 @@ _.forEach([
     });
 
 
-    it('does push/pop of json body ok', function (done) {
-      var msg = {
+    it('does push/pop of json body ok', done => {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -294,8 +310,8 @@ _.forEach([
     });
 
 
-    it('does push/pop of text body ok', function (done) {
-      var msg = 'qwertyuiop';
+    it('does push/pop of text body ok', done => {
+      const msg = 'qwertyuiop';
 
       async.series([
         cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'x-ks-hdr-a': '555', 'x-ks-hdr-b': 555, 'content-type': 'text/plain-str'}, cb),
@@ -318,8 +334,8 @@ _.forEach([
     });
 
 
-    it('does push/pop of Buffer body ok', function (done) {
-      var msg = Buffer.from ([0x10, 0x11, 0x12]);
+    it('does push/pop of Buffer body ok', done => {
+      const msg = Buffer.from ([0x10, 0x11, 0x12]);
 
       async.series([
         cb => put_msg_hdrs(namespace, 'q1', msg, {a: '76', 'x-ks-hdr-a': '555', 'x-ks-hdr-b': 555, 'content-type': 'application/octet-stream'}, cb),
@@ -342,8 +358,8 @@ _.forEach([
     });
 
 
-    it('does pop + timeout ok', function (done) {
-      var t0 = new Date().getTime();
+    it('does pop + timeout ok', done => {
+      const t0 = new Date().getTime();
       async.series([
         cb => get_msg_timeout(namespace, 'q1', 2000, cb)
       ], (err, allres) => {
@@ -352,15 +368,15 @@ _.forEach([
           tid: /.+/
         });
 
-        var t1 = new Date().getTime();
+        const t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(2000, 100);
 
         done(err);
       });
     });
 
-    it('does pop + delay + push ok', function (done) {
-      var msg = {
+    it('does pop + delay + push ok', done => {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -368,7 +384,7 @@ _.forEach([
           cb: {}
         }
       };
-      var t0 = new Date().getTime();
+      const t0 = new Date().getTime();
       async.parallel([
         cb => get_msg_hdrs(namespace, 'q1', cb),
         cb => setTimeout(() => put_msg (namespace, 'q1', msg, cb), 1000),
@@ -379,14 +395,14 @@ _.forEach([
           'x-ks-tries': '0'
         });
 
-        var t1 = new Date().getTime();
+        const t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 700);
 
         done(err);
       });
     });
 
-    it('does pop + delay + cancel + push + pop ok', function (done) {
+    it('does pop + delay + cancel + push + pop ok', done => {
       async.series([
         function (cb) {
           get_msg_timeout_id(namespace, 'q1', 3000, 'the-first-consumer', function () {});

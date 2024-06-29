@@ -1,5 +1,11 @@
 .vscode/
-coverage
-.nyc_output
-docusaurus
-
+.nyc_output/
+.github/
+bench/
+coverage/
+docker-compose/
+docusaurus/
+examples/
+playground/
+test/
+docker-compose.yaml

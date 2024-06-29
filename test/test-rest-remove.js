@@ -1,20 +1,20 @@
-var should = require('should');
-var async = require('async');
-var request = require('supertest');
-var _ = require('lodash');
+const should = require('should');
+const async = require('async');
+const request = require('supertest');
+const _ = require('lodash');
 
-var BaseApp = require ('../app');
-var Scope =   require ('../Scope');
+const BaseApp = require ('../app');
+const Scope =   require ('../Scope');
 
-var theApp;
+let theApp;
 
-var stats_redis =  require('keuss/stats/redis');
-var signal_redis = require('keuss/signal/redis-pubsub');
+const stats_redis =  require('keuss/stats/redis');
+const signal_redis = require('keuss/signal/redis-pubsub');
 
-var stats_mongo =  require('keuss/stats/mongo');
-var signal_mongo = require('keuss/signal/mongo-capped');
+const stats_mongo =  require('keuss/stats/mongo');
+const signal_mongo = require('keuss/signal/mongo-capped');
 
-var config = {
+const config = {
   http: {
     users: {
       'test': 'toast'
@@ -96,6 +96,21 @@ var config = {
           provider: signal_redis
         }
       }
+    },
+    postgres: {
+      factory: 'postgres',
+      config: {
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
+        }
+      }
     }
   }
 };
@@ -145,7 +160,7 @@ function del_unknown_msg(namespace, q, id, cb) {
 
 
 
-var metrics = {
+const metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
@@ -158,15 +173,19 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
 });
 
 _.forEach([
-  'redis_oq',
-  'mongo_simple',
-  'mongo_pipeline',
-  'mongo_tape',
-  'bucket_mongo_safe'
-], namespace => {
+  { id: 'mongo_simple',      unknown_id: '112233445566778899001122'},
+  { id: 'mongo_pipeline',    unknown_id: '112233445566778899001122'},
+  { id: 'mongo_tape',        unknown_id: '112233445566778899001122'},
+  { id: 'redis_oq',          unknown_id: '112233445566778899001122'},
+  { id: 'bucket_mongo_safe', unknown_id: '112233445566778899001122'},
+  { id: 'postgres',          unknown_id: '00000000-0000-0000-0000-000000000000'},
+], entry => {
+  const namespace = entry.id;
+  const unknown_id = entry.unknown_id;
+
   describe('REST delete-msg operations on queue namespace ' + namespace, () => {
     before (done => {
-      var scope = new Scope ();
+      const scope = new Scope ();
       scope.init (config, {}, err => {
         if (err) return done (err);
         BaseApp(config, {scope, metrics}, () => {}, (err, app) => {
@@ -184,7 +203,7 @@ _.forEach([
 
 
     it('returns 404 upon deletion on an unknown id', done => {
-      del_unknown_msg(namespace, 'q1', '11223344556677889900aabb', done);
+      del_unknown_msg(namespace, 'q1', unknown_id, done);
     });
 
 
