@@ -1,19 +1,19 @@
-var should =  require('should');
-var async =   require('async');
-var _ =       require('lodash');
-var stompit = require('stompit');
-var Log =     require('winston-log-space');
+const should =  require('should');
+const async =   require('async');
+const _ =       require('lodash');
+const stompit = require('stompit');
+const Log =     require('winston-log-space');
 
 
-var stomp_server;
+let stomp_server;
 
-var stats_redis =  require('keuss/stats/redis');
-var signal_redis = require('keuss/signal/redis-pubsub');
+const stats_redis =  require('keuss/stats/redis');
+const signal_redis = require('keuss/signal/redis-pubsub');
 
-var stats_mongo =  require('keuss/stats/mongo');
-var signal_mongo = require('keuss/signal/mongo-capped');
+const stats_mongo =  require('keuss/stats/mongo');
+const signal_mongo = require('keuss/signal/mongo-capped');
 
-var config = {
+const config = {
   http: {
     users: {
       'test': 'toast'
@@ -95,6 +95,21 @@ var config = {
           provider: signal_redis
         }
       }
+    },
+    postgres: {
+      factory: 'postgres',
+      config: {
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
+        }
+      }
     }
   }
 };
@@ -104,7 +119,7 @@ var config = {
 
 
 function stompcl (cb) {
-  var connectOptions = {
+  const connectOptions = {
     'host': 'localhost',
     'port': 61613,
     'connectHeaders':{
@@ -119,19 +134,19 @@ function stompcl (cb) {
 }
 
 function send_obj (scl, q, obj, cb) {
-  var sendHeaders = {
+  const sendHeaders = {
     'destination': q,
     'content-type': 'application/json'
   };
 
-  var frame = scl.send(sendHeaders, {onReceipt: cb});
+  const frame = scl.send(sendHeaders, {onReceipt: cb});
   frame.write(JSON.stringify (obj));
   frame.end();
 }
 
 
 
-var promster = {
+const promster = {
   register: {
     getSingleMetric: function () {return null;}
   },
@@ -142,7 +157,7 @@ var promster = {
 }
 
 
-var metrics = {
+const metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
@@ -160,7 +175,8 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape',
-  'bucket_mongo_safe'
+  'bucket_mongo_safe',
+  'postgres'
 ], namespace => {
   describe('STOMP push/pop operations on queue namespace ' + namespace, () => {
 
@@ -170,7 +186,7 @@ _.forEach([
         const Stomp = require ('../stomp');
         const Scope = require ('../Scope');
 
-        var scope = new Scope ();
+        const scope = new Scope ();
         scope.init (config, {}, err  => {
           if (err) return cb (err);
           stomp_server = new Stomp (config, {scope, metrics, promster});
@@ -185,8 +201,8 @@ _.forEach([
 
 
     it('does push/pop ok, ack to auto', done => {
-      var q = '/q/' + namespace + '/stomp_test_1';
-      var msg = {
+      const q = '/q/' + namespace + '/stomp_test_1';
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -198,7 +214,7 @@ _.forEach([
       stompcl ((err, cl) => {
         if (err) return done(err);
 
-        var subscribeHeaders = {
+        const subscribeHeaders = {
           'destination': q,
           'ack': 'auto'
         };
@@ -221,13 +237,13 @@ _.forEach([
 
 
     it('does push/pop ok with string content (ctype is text/plain)', done => {
-      var q = '/q/' + namespace + '/stomp_test_2';
-      var msg = 'qwertyuiopasdfghjkl';
+      const q = '/q/' + namespace + '/stomp_test_2';
+      const msg = 'qwertyuiopasdfghjkl';
 
       stompcl ((err, cl) => {
         if (err) return done(err);
 
-        var subscribeHeaders = {
+        const subscribeHeaders = {
           'destination': q,
           'ack': 'auto'
         };
@@ -256,7 +272,7 @@ _.forEach([
         });
 
         // send it
-        var frame = cl.send ({
+        const frame = cl.send ({
           'destination': q,
           'content-type': 'text/plain',
           a: '666',
@@ -270,13 +286,13 @@ _.forEach([
 
 /*
     it('does push/pop ok with Buffer content (ctype is bin/bytes)', done => {
-      var q = '/q/' + namespace + '/stomp_test_2';
-      var msg = Buffer.from ([0x10, 0x11, 0x12, 0x13, 0x00, 0x15, 0x16, 0x17]);
+      const q = '/q/' + namespace + '/stomp_test_2';
+      const msg = Buffer.from ([0x10, 0x11, 0x12, 0x13, 0x00, 0x15, 0x16, 0x17]);
 
       stompcl ((err, cl) => {
         if (err) return done(err);
 
-        var subscribeHeaders = {
+        const subscribeHeaders = {
           'destination': q,
           'ack': 'auto'
         };
@@ -291,7 +307,7 @@ _.forEach([
           message.headers['content-type'].should.equal ('bin/bytes');
 
           message.on('readable', () => {
-            var b = message.read ().slice (0,8);
+            const b = message.read ().slice (0,8);
             cl.destroy();
             b.should.eql (msg)
             done();
@@ -305,7 +321,7 @@ _.forEach([
         });
 
         // send it
-        var frame = cl.send ({
+        const frame = cl.send ({
           'destination': q,
           'content-type': 'bin/bytes',
           'content-length': 9

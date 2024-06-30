@@ -1,21 +1,21 @@
-var should =  require('should');
-var async =   require('async');
-var _ =       require('lodash');
-var stompit = require('stompit');
+const should =  require('should');
+const async =   require('async');
+const _ =       require('lodash');
+const stompit = require('stompit');
 
-var Stomp =   require ('../stomp');
-var Scope =   require ('../Scope');
+const Stomp =   require ('../stomp');
+const Scope =   require ('../Scope');
 
-var stomp_server;
+let stomp_server;
 
-var stats_redis =  require('keuss/stats/redis');
-var signal_redis = require('keuss/signal/redis-pubsub');
+const stats_redis =  require('keuss/stats/redis');
+const signal_redis = require('keuss/signal/redis-pubsub');
 
-var stats_mongo =  require('keuss/stats/mongo');
-var signal_mongo = require('keuss/signal/mongo-capped');
+const stats_mongo =  require('keuss/stats/mongo');
+const signal_mongo = require('keuss/signal/mongo-capped');
 
 
-var config = {
+const config = {
   http: {
     users: {
       'test': 'toast'
@@ -115,6 +115,21 @@ var config = {
           max_ko: 4
         }
       }
+    },
+    postgres: {
+      factory: 'postgres',
+      config: {
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
+        }
+      }
     }
   }
 };
@@ -124,7 +139,7 @@ var config = {
 
 
 function stompcl (cb) {
-  var connectOptions = {
+  const connectOptions = {
     'host': 'localhost',
     'port': 61613,
     'connectHeaders':{
@@ -139,17 +154,17 @@ function stompcl (cb) {
 }
 
 function send_obj (scl, q, obj, cb) {
-  var sendHeaders = {
+  const sendHeaders = {
     'destination': q,
     'content-type': 'application/json'
   };
 
-  var frame = scl.send(sendHeaders, {onReceipt: cb});
+  const frame = scl.send(sendHeaders, {onReceipt: cb});
   frame.write(JSON.stringify (obj));
   frame.end();
 }
 
-var promster = {
+const promster = {
   register: {
     getSingleMetric: function () {return null;}
   },
@@ -159,7 +174,7 @@ var promster = {
   }
 }
 
-var metrics = {
+const metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
@@ -176,16 +191,17 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape',
-  'bucket_mongo_safe'
+  'bucket_mongo_safe',
+  'postgres'
 ], function (namespace) {
 //  before (function (done) {
-//    var Log = require ('winston-log-space');
+//    const Log = require ('winston-log-space');
 //    Log.init ({level: {default: 'verbose'}}, done);
 //  });
 
   describe('STOMP reserve operations on queue namespace ' + namespace, () => {
     before(done => {
-      var scope = new Scope ();
+      const scope = new Scope ();
       scope.init (config, {}, err => {
         if (err) return done (err);
         stomp_server = new Stomp (config, {scope, metrics, promster});
@@ -198,8 +214,8 @@ _.forEach([
     });
 
     it('does push/reserve/commit ok', done => {
-      var q = '/q/' + namespace + '/stomp_test_2';
-      var msg = {
+      const q = '/q/' + namespace + '/stomp_test_2';
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -211,7 +227,7 @@ _.forEach([
       stompcl ((err, cl) => {
         if (err) return done(err);
 
-        var subscribeHeaders = {
+        const subscribeHeaders = {
           'destination': q,
           'ack': 'client-individual'
         };
@@ -234,8 +250,8 @@ _.forEach([
     });
 
     it('does push/reserve/nack cycle (2 nacks, 1 ack) ok', done => {
-      var q = '/q/' + namespace + '/stomp_test_3';
-      var msg = {
+      const q = '/q/' + namespace + '/stomp_test_3';
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -247,19 +263,19 @@ _.forEach([
       stompcl ((err, cl) => {
         if (err) return done(err);
 
-        var subscribeHeaders = {
+        const subscribeHeaders = {
           'destination': q,
           'ack': 'client-individual'
         };
 
-        var record = [];
+        const record = [];
 
         cl.subscribe(subscribeHeaders, (err, message) => {
           if (err) return done(err);
 
           message.readString ('utf-8', (err, body) => {
             if (err) return done(err);
-            var objbody = JSON.parse (body);
+            const objbody = JSON.parse (body);
 
             if (record.length > 2) {
               cl.ack (message);
@@ -293,8 +309,8 @@ _.forEach([
     });
 
     it('does push/reserve/nack cycle up to deadletter ok', done => {
-      var q = '/q/' + namespace + '/stomp_test_4';
-      var msg = {
+      const q = '/q/' + namespace + '/stomp_test_4';
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -306,17 +322,17 @@ _.forEach([
       stompcl ((err, cl) => {
         if (err) return done(err);
 
-        var subscribeHeaders = {
+        const subscribeHeaders = {
           'destination': q,
           'ack': 'client-individual'
         };
 
-        var subscribeHeaders_deadletter = {
+        const subscribeHeaders_deadletter = {
           'destination': '/q/' + namespace + '/__deadletter__',
           'ack': 'client-individual'
         };
 
-        var record = [];
+        const record = [];
 
         cl.subscribe(subscribeHeaders_deadletter, (err, message) => {
           if (err) return done(err);
@@ -324,7 +340,7 @@ _.forEach([
           message.readString ('utf-8', (err, body) => {
             if (err) return done(err);
 
-            var objbody = JSON.parse (body);
+            const objbody = JSON.parse (body);
             cl.ack (message);
             cl.disconnect();
 
@@ -354,7 +370,7 @@ _.forEach([
 
           message.readString ('utf-8', (err, body) => {
             if (err) return done(err);
-            var objbody = JSON.parse (body);
+            const objbody = JSON.parse (body);
             record.push ({
               body: objbody,
               headers: message.headers

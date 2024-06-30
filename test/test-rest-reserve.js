@@ -1,23 +1,23 @@
-var should = require('should');
-var async = require('async');
-var request = require('supertest');
-var _ = require('lodash');
-var Chance = require('chance');
+const should = require('should');
+const async = require('async');
+const request = require('supertest');
+const _ = require('lodash');
+const Chance = require('chance');
 
-var chance = new Chance();
+const chance = new Chance();
 
-var BaseApp = require('../app');
-var Scope =   require ('../Scope');
+const BaseApp = require('../app');
+const Scope =   require ('../Scope');
 
-var theApp;
+let theApp;
 
-var stats_redis =  require('keuss/stats/redis');
-var signal_redis = require('keuss/signal/redis-pubsub');
+const stats_redis =  require('keuss/stats/redis');
+const signal_redis = require('keuss/signal/redis-pubsub');
 
-var stats_mongo =  require('keuss/stats/mongo');
-var signal_mongo = require('keuss/signal/mongo-capped');
+const stats_mongo =  require('keuss/stats/mongo');
+const signal_mongo = require('keuss/signal/mongo-capped');
 
-var config = {
+const config = {
   http: {
     users: {
       'test': 'toast'
@@ -97,6 +97,21 @@ var config = {
         },
         signaller: {
           provider: signal_redis
+        }
+      }
+    },
+    postgres: {
+      factory: 'postgres',
+      config: {
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
         }
       }
     }
@@ -262,7 +277,7 @@ function commit_or_rollback_msg(namespace, q, id, commit, cb) {
 
 
 
-var metrics = {
+const metrics = {
 };
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
@@ -275,15 +290,19 @@ _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
 });
 
 _.forEach([
-  'redis_oq',
-  'mongo_simple',
-  'mongo_tape',
-  'mongo_pipeline',
-  'bucket_mongo_safe'
-], namespace =>{
+  { id: 'mongo_simple',      unknown_id: '112233445566778899001122'},
+  { id: 'mongo_pipeline',    unknown_id: '112233445566778899001122'},
+  { id: 'mongo_tape',        unknown_id: '112233445566778899001122'},
+  { id: 'redis_oq',          unknown_id: '112233445566778899001122'},
+  { id: 'bucket_mongo_safe', unknown_id: '112233445566778899001122'},
+  { id: 'postgres',          unknown_id: '00000000-0000-0000-0000-000000000000'},
+], entry => {
+  const namespace = entry.id;
+  const unknown_id = entry.unknown_id;
+
   describe('REST reserve-commit-rollback operations on queue namespace ' + namespace, () => {
     before (done => {
-      var scope = new Scope ();
+      const scope = new Scope ();
       scope.init (config, {}, err => {
         if (err) return done (err);
         BaseApp(config, {scope, metrics}, () => {}, (err, app) => {
@@ -299,7 +318,7 @@ _.forEach([
     });
 
     it('does reserve+commit ok', done => {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -308,8 +327,8 @@ _.forEach([
         }
       };
 
-      var id;
-      var t0 = new Date().getTime();
+      let id;
+      const t0 = new Date().getTime();
       async.series([
         cb => put_msg(namespace, 'q1', msg, cb),
         cb => reserve_msg_hdrs (namespace, 'q1', (err, res) => {
@@ -322,7 +341,7 @@ _.forEach([
         if (err) return done (err);
         allres[1].should.eql(msg);
 
-        var t1 = new Date().getTime();
+        const t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 1000);
 
         done();
@@ -330,7 +349,7 @@ _.forEach([
     });
 
     it('does reserve+rollback+get ok', done => {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -339,8 +358,8 @@ _.forEach([
         }
       };
 
-      var id;
-      var t0 = new Date().getTime();
+      let id;
+      const t0 = new Date().getTime();
       async.series([
         cb => put_msg(namespace, 'q1', msg, cb),
         cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
@@ -351,7 +370,7 @@ _.forEach([
         cb => rollback_msg(namespace, 'q1', id, cb),
         cb => get_msg(namespace, 'q1', cb),
       ],(err, allres) => {
-        var t1 = new Date().getTime();
+        const t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(1000, 1100);
 
         allres[1].should.eql (msg);
@@ -362,7 +381,7 @@ _.forEach([
     });
 
     it('causes reserve+reserve+rollback to go on second consumer ok', done => {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -371,13 +390,13 @@ _.forEach([
         }
       };
 
-      var t0 = new Date().getTime();
-      var passes = 0;
+      const t0 = new Date().getTime();
+      let passes = 0;
 
       async.parallel([
         cb => {
-          var id;
-          var commit = false;
+          let id;
+          let commit = false;
 
           async.series ([
             cb => reserve_msg_hdrs (namespace, 'q1', (err, res) => {
@@ -392,8 +411,8 @@ _.forEach([
           ], cb);
         },
         cb => {
-          var id;
-          var commit;
+          let id;
+          let commit;
           async.series ([
             cb => setTimeout (cb, 1000),
             cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
@@ -413,7 +432,7 @@ _.forEach([
         allres[0][0].should.eql(msg);
         allres[1][1].should.eql(msg);
 
-//        var t1 = new Date().getTime();
+//        const t1 = new Date().getTime();
 //        (t1 - t0).should.be.approximately(4000, 100);
 
         done(err);
@@ -421,7 +440,7 @@ _.forEach([
     });
 
     it('does reserve+commit on sched message ok', function (done) {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -430,8 +449,8 @@ _.forEach([
         }
       };
 
-      var id;
-      var t0 = new Date().getTime();
+      let id;
+      const t0 = new Date().getTime();
       async.series([
         cb => put_msg_delayed(namespace, 'q1', msg, 2, cb),
         cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
@@ -443,16 +462,15 @@ _.forEach([
       ],  (err, allres) => {
         allres[1].should.eql(msg);
 
-        var t1 = new Date().getTime();
+        const t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(3000, 500);
 
         done(err);
       });
     });
 
-
     it('honors rollback with custon delay', function (done) {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -461,8 +479,8 @@ _.forEach([
         }
       };
 
-      var id;
-      var t0 = new Date().getTime();
+      let id;
+      const t0 = new Date().getTime();
       async.series([
         cb => put_msg(namespace, 'q1', msg, cb),
         cb => reserve_msg_hdrs(namespace, 'q1', (err, res) => {
@@ -473,7 +491,7 @@ _.forEach([
         cb => rollback_msg_delay(namespace, 'q1', id, 2000, cb),
         cb => get_msg(namespace, 'q1', cb),
       ], (err, allres) => {
-        var t1 = new Date().getTime();
+        const t1 = new Date().getTime();
         (t1 - t0).should.be.approximately(3000, 1000);
 
         allres[1].should.eql(msg);
@@ -484,7 +502,7 @@ _.forEach([
     });
 
     it('gives 404 on rollback upon invalid id', function (done) {
-      var msg = {
+      const msg = {
         a: 'aaa',
         b: 666,
         c: {
@@ -494,7 +512,7 @@ _.forEach([
       };
 
       async.series([
-        cb => rollback_msg_unknown (namespace, 'q1', '112233445566778899001122', cb),
+        cb => rollback_msg_unknown (namespace, 'q1', unknown_id, cb),
       ], (err, allres) => {
         should(err).equal (null);
         allres[0].status.should.equal (404)

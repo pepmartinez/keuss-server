@@ -114,24 +114,43 @@ class Scope {
 
 
   //////////////////////////////
-  queue_from_ns (ns, qname, opts) {
+  queue_from_ns (ns, qname, opts, cb) {
+    let key = null;
+    if (opts) key = qname + JSON.stringify (opts);
+
+    const tasks = [];
+
     if (!ns.q_repo.has (qname)) {
-      ns.q_repo.set (qname, ns.factory.queue (qname));
-      logger.verbose ('created canonical queue [%s@%s] ondemand', qname, ns.factory.name());
+      // canonical queue does not exist, create it async
+      tasks.push (cb => {
+        ns.factory.queue (qname, (err, q) => {
+          if (err) return cb (err);
+          ns.q_repo.set (qname, q);
+          logger.verbose ('created canonical queue [%s@%s] ondemand', qname, ns.factory.name());
+          cb();
+        })
+      })
     }
 
-    if (opts) {
-      const key = qname + JSON.stringify (opts);
+    if (key) {
       if (!ns.q_cl_repo.has (key)) {
-        ns.q_cl_repo.set (key, ns.factory.queue (qname, opts));
-        logger.verbose ('created alternate queue [%s@%s] ondemand', key, ns.factory.name());
+        // alternate queue does not exist, create it async
+        tasks.push (cb => {
+          ns.factory.queue (qname, opts, (err, q) => {
+            if (err) return cb (err);
+            ns.q_cl_repo.set (key, q);
+            logger.verbose ('created alternate queue [%s@%s] ondemand', key, ns.factory.name());
+            cb();
+          })
+        })
       }
+    }
 
-      return ns.q_cl_repo.get (key);
-    }
-    else {
-      return ns.q_repo.get (qname);
-    }
+    async.series (tasks, err => {
+      if (err) return cb (err);
+      if (key) return cb (null, ns.q_cl_repo.get (key));
+      return cb (null, ns.q_repo.get (qname));
+    });
   }
 
 
@@ -150,8 +169,17 @@ class Scope {
 
     logger.info ('creating exchange [%s]', name);
     const ex = new Exchange (name, exchange_decl, this._context);
-    this._exchanges[name] = ex;
-    ex.init (cb);
+
+    ex.init (err => {
+      if (err) {
+        logger.error ('could not initialize exchange [%s]: %s', name, err.toString());
+        return cb (err);
+      }
+
+      logger.info ('initialized exchange [%s]', name);
+      this._exchanges[name] = ex;
+      cb()
+    });
   }
 
 
@@ -281,21 +309,18 @@ class Scope {
 
     try {
       this.create_exchange (ev.name, ev.decl, (err, xchg) => {
-        if (err) {
-          logger.error ('error when creating exchange %j: %s', ev, err.toString ());
-        }
-        else {
-          logger.info ('created exchange %j', ev);
-        }
-      });
+        if (err) return logger.error ('error when creating exchange %j: %s', ev, err.toString ());
 
-      xchg.start (err => {
-        if (err) {
-          logger.error ('error when starting exchange %j: %s', ev, err.toString ());
-        }
-        else {
-          logger.info ('started exchange %j', ev);
-        }
+        logger.info ('created exchange %j', ev);
+
+        xchg.start (err => {
+          if (err) {
+            logger.error ('error when starting exchange %j: %s', ev, err.toString ());
+          }
+          else {
+            logger.info ('started exchange %j', ev);
+          }
+        });
       });
     }
     catch (e) {

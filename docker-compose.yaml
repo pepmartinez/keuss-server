@@ -22,7 +22,21 @@ services:
   redis:
     image: redis:alpine
     ports:
-     - 6379:6379
+      - 6379:6379
+
+  postgres:
+    image: postgres:16.3
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER:     pg
+      POSTGRES_PASSWORD: pg
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 18080:8080
 
 networks:
   default:

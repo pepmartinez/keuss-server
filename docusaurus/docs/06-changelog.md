@@ -3,6 +3,9 @@ id: changelog
 title: Changelog
 sidebar_label: Changelog
 ---
+* v3.0.0
+  * use `keuss v2` (adds support for `postgres` as queue backend)
+  * updated deps
 * v2.1.4
   * updated other deps
 * v2.1.3

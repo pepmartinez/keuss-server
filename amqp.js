@@ -390,7 +390,7 @@ class AMQP {
     const opts = {
       reserve: sender.__do_reserve
     };
-
+    
     logger.debug ('[conn %s][sender %s] getting element from queue %s@%s', conn_id, sender.name, q.name(), q.ns());
     const tid = q.pop (cid, opts, (err, item) => {
       delete this._pending_tids[tid];
@@ -467,7 +467,12 @@ class AMQP {
     // const addr =    sender.source.address;
     const q =       sender.__q;
 
-    logger.debug ('[conn %s][sender %s] signalled as sendable', conn_id, sender.name);
+    if (!q) {
+      logger.verbose ('[conn %s][sender %s] signalled as sendable but queue is still not ready, ignoring', conn_id, sender.name);
+      return;
+    }
+
+    logger.verbose ('[conn %s][sender %s] signalled as sendable', conn_id, sender.name);
     this._send_one (conn_id, sender, q);
   }
 
@@ -598,19 +603,27 @@ class AMQP {
     const target =  context.receiver.remote.attach.target;
     const name =    context.receiver.name;
 
-    var q = this._get_queue (target.address);
-    if (_.isString (q)) {
-      logger.error ('while opening a receiver: %s', q);
-      return context.receiver.close ({
-        condition: 'amqp:not-found',
-        description: `while trying to get queue [${target.address}] for receiver: ${q}`
-      });
-    }
+    this._get_queue (target.address, (err, q) => {
+      if (err) {
+        logger.error ('while opening a receiver: %s', err);
+        return context.receiver.close ({
+          condition: 'amqp:not-found',
+          description: `while trying to get queue [${target.address}] for receiver: ${err}`
+        });
+      }
 
-    context.receiver.set_target (target);
-    context.receiver.__q = q;
+      context.receiver.set_target (target);
+      context.receiver.__q = q;
 
-    logger.verbose ('[%s] new receiver [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
+      // drain in-mem buffer while queue was being created, if exists
+      if (context.receiver.__rcv_buffer) {
+        logger.verbose ('draining %d messages from in-mem buffer (while queue gets created)', context.receiver.__rcv_buffer.length);
+        _.each (context.receiver.__rcv_buffer, item => this._push_a_mesg (q, item.delivery, item.msg, item.opts));
+        delete context.receiver.__rcv_buffer;
+      }
+
+      logger.verbose ('[%s] new receiver [%s] opened: attached to queue %s@%s', conn_id, name, q.name (), q.ns ());
+    });
   }
 
 
@@ -620,25 +633,31 @@ class AMQP {
     const src =     context.sender.remote.attach.source;
     const name =    context.sender.name;
 
-    const q = this._get_queue (src.address);
-    if (_.isString (q)) {
-      logger.error ('while opening a sender: %s', q);
-      return context.sender.close ({
-        condition: 'amqp:not-found',
-        description: `while trying to get queue [${src.address}] for sender: ${q}`
-      });
-    }
+    logger.info ('[%s] sender_open received for q %s, name %s', conn_id, src.address, name);
+
+    this._get_queue (src.address, (err, q) => {
+      if (err) {
+        logger.error ('while opening a sender: %s', err);
+        return context.sender.close ({
+          condition: 'amqp:not-found',
+          description: `while trying to get queue [${src.address}] for sender: ${err}`
+        });
+      }
     
-    // honor remote value for snd_settle_mode
-    context.sender.local.attach.snd_settle_mode = context.sender.snd_settle_mode;
+      // honor remote value for snd_settle_mode
+      context.sender.local.attach.snd_settle_mode = context.sender.snd_settle_mode;
 
-    context.sender.set_source (src);
-    context.sender.__q = q;
-    context.sender.__pending_acks = 0;
-    context.sender.__pending_tids = {};
-    context.sender.__do_reserve = context.sender.snd_settle_mode != 1;
+      context.sender.set_source (src);
+      context.sender.__q = q;
+      context.sender.__pending_acks = 0;
+      context.sender.__pending_tids = {};
+      context.sender.__do_reserve = context.sender.snd_settle_mode != 1;
 
-    logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s, snd_settle_mode is %d', conn_id, name, q.name (), q.ns (), context.sender.snd_settle_mode);
+      logger.info ('[%s] new sender [%s] opened: attached to queue %s@%s, snd_settle_mode is %d', conn_id, name, q.name (), q.ns (), context.sender.snd_settle_mode);
+
+      // force init of sending loops
+      this._send_one (conn_id, context.sender, q);
+    });
   }
 
 
@@ -685,7 +704,7 @@ class AMQP {
     const name =    context.receiver.name;
     const addr =    context.receiver.target.address;
 
-    logger.debug ('[%s][%s] got message: %o', conn_id, name, context.message);
+    logger.verbose ('[%s][%s] got message: %o', conn_id, name, context.message);
     
     const q = context.receiver.__q;
     const msg = context.message.body;
@@ -697,18 +716,32 @@ class AMQP {
 
     this._amqp_to_hdrs (context.message, opts) ;
 
+    if (!q) {
+      // keuss queue is created async. buffer pushes in mem meanwhile
+      if (!context.receiver.__rcv_buffer) context.receiver.__rcv_buffer = [];
+      context.receiver.__rcv_buffer.push ({delivery: context.delivery, msg, opts});
+      logger.verbose ('buffered received message on addr %s while queue gets created', addr);
+    }
+    else {
+      this._push_a_mesg (q, context.delivery, msg, opts);
+    }
+  }
+
+
+  //////////////////////////////////////////////////
+  _push_a_mesg (q, delivery, msg, opts) {
     q.push (msg, opts, (err, res) => {
       if (err) {
         logger.error ('Could not push to %s@%s: %o', q.name(), q.ns(), err);
 
-        return context.delivery.reject ({
+        return delivery.reject ({
           condition: 'amqp:internal-error',
           description: err.toString ()
         });
       }
 
       logger.verbose ('pushed new mesg to %s@%s: %o', q.name(), q.ns(), res);
-      context.delivery.accept ();
+      delivery.accept ();
       this._metrics.keuss_q_push.labels ('amqp', q.ns(), q.name(), (err ? 'ko' : 'ok')).inc ();
     });
   }
@@ -759,18 +792,17 @@ class AMQP {
 
 
   ///////////////////////////////////////////////////////////////////////////
-  _get_queue (destination) {
+  _get_queue (destination, cb) {
     // dest must be one of : /amq/queue/(R) /queue/(R) (R)
     // where (R) is one of: ns/queue
     const match = destination.match (/^(?:\/amq\/queue\/|\/queue\/)?(?<ns>[a-zA-Z0-9\\-_:]+)\/(?<q>[a-zA-Z0-9\\-_:]+)$/);
-    if (!match) return `address ${destination} must match <ns>/<queue> or /queue/<ns>/<queue> or /amq/queue/<ns>/<queue>`;
+    if (!match) return cb (`address ${destination} must match <ns>/<queue> or /queue/<ns>/<queue> or /amq/queue/<ns>/<queue>`);
 
     const ns = this._scope.namespace (match.groups.ns);
-    if (!ns) return `unknown namespace ${ns} on address ${destination}`;
+    if (!ns) return cb (`unknown namespace ${ns} on address ${destination}`);
 
     const qname = match.groups.q;
-    const q = this._scope.queue_from_ns (ns, qname);
-    return q;
+    this._scope.queue_from_ns (ns, qname, null, cb);
   }
 }
 

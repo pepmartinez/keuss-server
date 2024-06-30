@@ -1,17 +1,17 @@
-var should =  require('should');
-var async =   require('async');
-var _ =       require('lodash');
-var rhea =    require('rhea');
+const should =  require('should');
+const async =   require('async');
+const _ =       require('lodash');
+const rhea =    require('rhea');
 
-var Scope =   require ('../Scope');
+const Scope =   require ('../Scope');
 
-var amqp_server;
+let amqp_server;
 
-var stats_redis =  require('keuss/stats/redis');
-var signal_redis = require('keuss/signal/redis-pubsub');
+const stats_redis =  require('keuss/stats/redis');
+const signal_redis = require('keuss/signal/redis-pubsub');
 
-var stats_mongo =  require('keuss/stats/mongo');
-var signal_mongo = require('keuss/signal/mongo-capped');
+const stats_mongo =  require('keuss/stats/mongo');
+const signal_mongo = require('keuss/signal/mongo-capped');
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +45,7 @@ class AMQPSnd {
       cb (null, ctx)
     });
 
-    this._container.once ('error', err => cb (err));
+    this._container.once ('error', err => {console.error(err); cb (err)});
 
     this._connection.open_sender (this._snd_opts);
   }
@@ -127,7 +127,7 @@ class AMQPRcv {
 }
 
 
-var config = {
+const config = {
   http: {
     users: {
       'test': 'toast'
@@ -239,6 +239,21 @@ var config = {
           max_ko: 4
         }
       }
+    },
+    postgres: {
+      factory: 'postgres',
+      config: {
+        pollInterval: 17000,
+        stats: {
+          provider: stats_redis,
+        },
+        signaller: {
+          provider: signal_redis
+        },
+        deadletter: {
+          max_ko: 4
+        }
+      }
     }
   }
 };
@@ -246,7 +261,7 @@ var config = {
 
 //should.config.checkProtoEql = false;
 
-var promster = {
+const promster = {
   register: {
     getSingleMetric: function () {return null;}
   },
@@ -256,7 +271,7 @@ var promster = {
   }
 }
 
-var metrics = {};
+const metrics = {};
 _.forEach(['q_push', 'q_pop', 'q_reserve', 'q_commit', 'q_rollback'], i => {
   metrics['keuss_' + i] = {
     labels: function () {
@@ -272,20 +287,21 @@ _.forEach([
   'mongo_simple',
   'mongo_pipeline',
   'mongo_tape',
-  'bucket_mongo_safe'
+  'bucket_mongo_safe',
+  'postgres'
 ], namespace => {
 
 //  before (done => {
-//    var Log = require ('winston-log-space');
+//    const Log = require ('winston-log-space');
 //    Log.init ({level: {default: 'info', amqp: 'verbose',}}, done);
 //  });
 
   describe ('AMQP pushpop operations on queue namespace ' + namespace, () => {
     before (done => {
-      var scope = new Scope ();
+      const scope = new Scope ();
       scope.init (config, {}, err => {
         if (err) return done (err);
-        var AMQP = require ('../amqp');
+        const AMQP = require ('../amqp');
         amqp_server = new AMQP (config, {scope, metrics, promster});
         amqp_server.run (done);
       });
@@ -294,7 +310,6 @@ _.forEach([
     after (done => {
       amqp_server.end (() => setTimeout (done, 1000));
     });
-
 
     it ('does push/pop ok', done => {
       const q = `/queue/${namespace}/amqp_test_1`;

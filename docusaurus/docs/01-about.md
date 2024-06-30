@@ -12,7 +12,7 @@ It also offers *exchanges*: a functionality to automatically move or copy messag
 
 In brief, these are the features fully inherited from Keuss:
 
-* Ability to use mongodb or redis as backend for queues, events and metadata. Durability and persistence guarantees vary depending on the backend chosen (see [keuss Storage](https://pepmartinez.github.io/keuss/docs/concepts#storage) for more information)
+* Ability to use `mongodb`, `redis` or `postgres` as backend for queues, events and metadata. Durability and persistence guarantees vary depending on the backend chosen (see [keuss Storage](https://pepmartinez.github.io/keuss/docs/concepts#storage) for more information)
 * Delayed/scheduled elements
 * Deadletter queues
 * At-least-once and at-most-once delivery guarantees

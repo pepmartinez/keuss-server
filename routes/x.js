@@ -2,8 +2,6 @@ const express =    require ('express');
 const _ =          require ('lodash');
 const bodyParser = require ('body-parser');
 
-const Exchange = require ('../lib/exchange/Exchange');
-
 
 //////////////////////////////////////////////////////////////////////////////////////
 function _list_exchanges_tree (scope, req, res) {
