@@ -91,6 +91,21 @@ const config = {
         signaller: 'mongo'
       }
     },
+    postgres: {
+      factory: 'postgres',
+      disable: false,
+      config: {
+        postgres: {
+          user:     '{data.postgres.user:pg}', 
+          password: '{data.postgres.password:pg}',
+          host:     '{data.postgres.host:localhost}',
+          port:     '#int:{data.postgres.port:5432}',
+          database: '{data.postgres.database:pg}'
+        },
+        stats: 'mongo',
+        signaller: 'mongo'
+      }
+    }
   },
   exchanges: {
     alba: {
