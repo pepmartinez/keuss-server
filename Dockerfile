@@ -1,5 +1,5 @@
-# docker build -t pepmartinez/keuss-server:3.0.0 .
-# docker push pepmartinez/keuss-server:3.0.0
+# docker build -t pepmartinez/keuss-server:3.0.2 .
+# docker push pepmartinez/keuss-server:3.0.2
 
 FROM node:20-slim
 
